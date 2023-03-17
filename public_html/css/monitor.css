@@ -1,0 +1,22 @@
+body{
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+#content{
+    flex: 7;
+    height: 900px;
+    background-color: #ddd;
+}
+#menu{
+    flex: 1;
+    height: 900px;
+    background-color: #666;
+}
+#content{
+    display: flex;
+    flex-direction: column;
+}
+.hidden{
+    display: none !important;
+}
