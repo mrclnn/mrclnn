@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 
 
+use App\GalleryCategoryAggregator;
+use App\GalleryPostAggregator;
 use App\Helper;
 use App\Jobs\ParserJob;
 use App\Services\ImageHash;
@@ -268,100 +270,41 @@ OFFSET ?
 
     private function getQuery() : array
     {
-        $queryLimit = 40;
-        // чем больше sizelimit тем больше допуск к размеру экрана. тем больше возможные поля вокруг изображения.
-        // чем меньше sizelimit тем точнее изображение будет соответствовать размеру экрана.
-        $sizeLimit = 3;
-        $queryOffset = isset($this->request['offset']) ? $this->request['offset'] : 0;
-        $get = $this->request['get'];
 
-        switch (true){
-            case $get === 'all':
-                $filter = 'status IN (1,2) AND width != 0 AND tags_metadata LIKE \'uncensored\' AND tags_character LIKE \'%jean_gunnhildr\'';
-                break;
-            case $get === 'favorites':
-                $filter = 'status = 2 AND width != 0 AND estimate_at > \'2021-06-09\'';
-                break;
-            case $get === 'gif':
-                $filter = 'file_name like \'%.gif%\' AND width != 0';
-                break;
-            case $get === 'fav':
+        // нужно получить все данные у запроса
+        $postsLimit = 40;
 
-                $filter = "tags_copyright in ('genshin_impact','neon_genesis_evangelion','kill_la_kill', 'rwby', 'overwatch', 'adventure_time', 'nier:_automata', 'k-on!', 're:zero_kara_hajimeru_isekai_seikatsu', 'kono_subarashii_sekai_ni_shukufuku_wo!', 'one-punch_man') AND tags_metadata LIKE 'uncensored' AND (width * height) > 400000 AND (width * height) < 4000000";
-                break;
-            case $get === 'authors':
-//                $filter = 'WHERE hc.type = 1 AND width != 0';
-                  $filter = 'TRUE';
-//                $filter = 'status IN (1,2) AND hc.type = 1 AND width != 0 AND (width * height) > 400000 AND (width * height) < 4000000 AND tags_metadata LIKE \'%uncensored%\'';
-                break;
-            case (strpos($get, 'copyright_') === 0):
-                $copyright_tag = str_replace('copyright_', '', $get);
-                $filter = 'status IN (1,2) AND tags_copyright LIKE \'%'.$copyright_tag.'%\' AND (width * height) > 400000 AND (width * height) < 4000000';
-                break;
-            case (strpos($get, 'character_') === 0):
-                $character_tag = str_replace('character_', '', $get);
-                $filter = 'status IN (1,2) AND tags_character LIKE \'%'.$character_tag.'%\' AND (width * height) > 400000 AND (width * height) < 4000000';
-                break;
-            case (strpos($get, 'author_') === 0):
-                $artist = str_replace('author_', '', $get);
-                $filter = 'tags_artist LIKE \'%'.$artist.'%\' ';
-                break;
-            case (strpos($get, 'char_') === 0):
-                $char = str_replace('char_', '', $get);
-                $filter = 'tags_character LIKE \'%'.$char.'%\' ';
-                break;
-            case (strpos($get, 'fan_') === 0):
-                $fan = str_replace('fan_', '', $get);
-                $filter = 'tags_copyright LIKE \'%'.$fan.'%\' ';
-                break;
-            default: // --TODO уязвимость к инъекции
-//                $filter = 'WHERE status = 1 AND (tags_copyright like \''.$this->request['get'].'\' OR tags_character like \''.$this->request['get'].'\')';
-                $filter = 'status = 1 and category_id = 40 AND debug = 0 AND tags_artist !=\'\'';
+        // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
+        // в качестве дефолтного значения можно оставить 1 для квадратных изображений
+        $screen = $this->request['screen'] ?? 1;
+        $offset = $this->request['offset'] ?? 0;
+        $requestedCategory = $this->request['get'];
+
+
+        $postsConfig = [
+            'screen' => $screen,
+            'offset' => $offset,
+        ];
+
+        // получить список категорий отображение которых в данный момент валидно
+        // для этого модель для таблицы категорий: получить список валидных категорий
+
+        $enabledCategories = GalleryCategoryAggregator::getEnabledCategories();
+//        $this->logger->info('enabled categories: ', [$enabledCategories]);
+        if(in_array($requestedCategory, $enabledCategories)){
+            // можно продолжать работу
+            $this->logger->info("requested category $requestedCategory found in list of enabled");
+            GalleryPostAggregator::getPosts($requestedCategory, $postsConfig);
+
+        } else {
+            $this->logger->info("requested category $requestedCategory not found or disabled");
+            // запрашиваемой категории нет или она отключена
+            return [];
         }
-        $sql = <<<GET_QUERY
-SELECT 
-       file_name, 
-       status, 
-       width, 
-       height, 
-       tags_artist as artists, 
-       tags_character, 
-       tags_copyright, 
-       shown, 
-       q 
-FROM
-(SELECT 
-        file_name, 
-        status, 
-        width, 
-        height, 
-        tags_artist, 
-        tags_character, 
-        tags_copyright, 
-        shown, 
-        q 
-FROM
-(SELECT 
-        file_name, 
-        status, 
-        ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1) AS size, 
-        shown, 
-        width, 
-        height, 
-        tags_artist, 
-        tags_character, 
-        tags_copyright,
-        (SELECT COUNT(*) FROM posts AS hp JOIN categories hc ON hc.id = hp.category_id AND hc.enabled = 1 
-        WHERE (# PLACE FOR WHERE #) AND status NOT IN (0,3) AND shown = 0) AS q
-FROM posts AS hp JOIN categories hc ON hc.id = hp.category_id AND hc.enabled = 1
-WHERE (# PLACE FOR WHERE #) AND status NOT IN (0,3) AND shown = 0) as all_posts
-ORDER BY size, shown, rand() LIMIT ? OFFSET ?) AS chunk
-GET_QUERY;
-        $sql = preg_replace('/# PLACE FOR WHERE #/', $filter, $sql);
-        $this->logger->debug($sql);
-//        $res =
-//        $answ = ['content' => $res, 'q' => count($res)];
-        return DB::select($sql, [$this->request['screen'], $sizeLimit, $queryLimit, $queryOffset]);
+
+        return GalleryPostAggregator::getPosts($requestedCategory, $postsConfig);
+
+
     }
 
     private function estimateQuery() : array
