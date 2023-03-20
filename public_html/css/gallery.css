@@ -138,6 +138,10 @@ body{
     justify-content: space-between;
     /*background-color: #fff;*/
 }
+.category:hover{
+    cursor: pointer;
+    background-color: #222;
+}
 #search{
     /*padding: 5px;*/
     border-radius: 20px;

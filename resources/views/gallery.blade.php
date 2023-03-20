@@ -27,9 +27,9 @@
     </div>
     <ul id="menu">
         @foreach($categories as $category)
-            <li class="category" data-value="{{$category->tag}}" data-tag="{{$category->tag}}">
-                <span class="category-name">{{$category->name}}</span>
-                <span class="category_count">{{$category->max}}</span>
+            <li class="category" data-value="{{$category}}" data-tag="{{$category}}">
+                <span class="category-name">{{$category}}</span>
+                <span class="category_count">1</span>
             </li>
         @endforeach
         <ul id="from-remote"></ul>
