@@ -274,6 +274,7 @@ OFFSET ?
 
         // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
         // в качестве дефолтного значения можно оставить 1 для квадратных изображений
+        $postsChunkSize = 40;
         $screen = (float)$this->request['screen'] ?? 1;
         $offset = (int)$this->request['offset'] ?? 0;
         $requestedCategory = (string)$this->request['get'];
@@ -282,6 +283,7 @@ OFFSET ?
         $postsConfig = [
             'screen' => $screen,
             'offset' => $offset,
+            'chunkSize' => $postsChunkSize,
         ];
 
         // получить список категорий отображение которых в данный момент валидно

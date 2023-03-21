@@ -11,7 +11,6 @@ class GalleryCategoryAggregator
     {
 
         if(isset(self::$enabledCategories)) return self::$enabledCategories;
-        // тут нужно получать массив из объектов категорий
         $query = <<<QUERY
 select 
     id
@@ -26,7 +25,5 @@ QUERY;
             if($category) self::$enabledCategories[] = $category;
         }
         return self::$enabledCategories;
-    }
-
     }
 }

@@ -13,7 +13,7 @@ class GalleryPostAggregator{
 
     // todo возможно стоит оставить это абстрактным классом
 
-    private static int $postsChunkSize = 40;
+    private static int $postsChunkSize;
 
     // чем больше $sizeDiffusionLimit тем больше допуск к размеру экрана. тем больше возможные поля вокруг изображения.
     // чем меньше $sizeDiffusionLimit тем точнее изображение будет соответствовать размеру экрана.
@@ -21,7 +21,7 @@ class GalleryPostAggregator{
 
     private static float $screen = 1;
 
-    private static int $offset = 0;
+    private static int $offset;
 
 
 
@@ -50,11 +50,22 @@ COUNTALL;
         $filter = '';
         if($category->associatedTags){
             $logger->info('associated tags: ', [$category->associatedTags]);
+            //todo в данный момент это работает только как ограничивающая выборка. т.е. пост обязательно должен соответствовать всем указанным тэгам
+            //todo нужно прикрутить еще и расширяющую выборку, т.е. пост может соответствовать списку тегов по правилу ИЛИ
             foreach($category->associatedTags as $tagID){
                 $filter .= "concat(',',tags,',') like '%,$tagID,%' and ";
             }
         }
         $filter .= 'true';
+        $limit = '';
+        if(isset(self::$postsChunkSize)){
+            $limit = "LIMIT ".self::$postsChunkSize;
+        }
+        $offset = '';
+        if(isset(self::$offset)){
+            $offset = "OFFSET ".self::$offset;
+        }
+
 
         $query = <<<QUERY
 select
@@ -87,14 +98,16 @@ where
     true and
     # PLACE FOR WHERE #
 order by size, shown, rand()) as allPosts
-limit ?
-offset ?
+# PLACE FOR LIMIT #
+# PLACE FOR OFFSET #
 QUERY;
         $sql = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
+        $sql = preg_replace('/# PLACE FOR LIMIT #/', $limit, $sql);
+        $sql = preg_replace('/# PLACE FOR OFFSET #/', $offset, $sql);
 
+        $logger->info($sql);
 
-
-        return DB::select($sql, [self::$screen, self::$sizeDiffusionLimit, self::$postsChunkSize, self::$offset]);
+        return DB::select($sql, [self::$screen, self::$sizeDiffusionLimit]);
     }
     private static function setConfig(array $config){
         if(isset($config['screen'])){
@@ -102,6 +115,9 @@ QUERY;
         }
         if(isset($config['offset'])){
             self::$offset = (int)$config['offset'];
+        }
+        if(isset($config['chunkSize'])){
+            self::$postsChunkSize = (int)$config['chunkSize'];
         }
     }
 }
