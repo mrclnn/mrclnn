@@ -29,7 +29,7 @@
         @foreach($categories as $category)
             <li class="category" data-value="{{$category->name}}" data-tag="{{$category->name}}">
                 <span class="category-name">{{$category->name}}</span>
-                <span class="category_count">1</span>
+                <span class="category_count">{{$category->count}}</span>
             </li>
         @endforeach
         <ul id="from-remote"></ul>
