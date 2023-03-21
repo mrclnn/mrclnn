@@ -12,6 +12,8 @@ class GalleryCategoryModel extends Model
     public string $name;
     public array $associatedTags;
     public bool $enabled;
+    //todo заменить это полем базы данных
+    public int $count;
     public function getCategoryFromId(int $id) :?GalleryCategoryModel
     {
         $query = <<<QUERY
@@ -42,6 +44,12 @@ QUERY;
         return $this->getCategory($query, $params);
 
     }
+
+    public function countPosts(){
+        if(!isset($this->id)) return 0;
+        $posts = GalleryPostAggregator::getPosts($this);
+        return count($posts);
+    }
     private function getCategory(string $query, array $params) : ?GalleryCategoryModel
     {
         $res = DB::select($query, $params);
@@ -51,6 +59,7 @@ QUERY;
         $this->name = (string)$res[0]->name;
         $this->associatedTags = $res[0]->associated_tags ? explode(',', (string)$res[0]->associated_tags) : [];
         $this->enabled = (bool)$res[0]->enabled;
+        $this->count = $this->countPosts();
 
         return $this;
     }
