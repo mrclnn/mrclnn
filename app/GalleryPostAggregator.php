@@ -32,7 +32,7 @@ COUNTALL;
         return DB::select($query)[0]->sum;
     }
 
-    public static function getPosts(string $category, array $config = []){
+    public static function getPosts(GalleryCategoryModel $category, array $config = []){
         self::setConfig($config);
         $logger = new Logger(
             'helper', [
@@ -45,22 +45,16 @@ COUNTALL;
             ]
         );
 
-        $logger->info('category: ', [$category]);
-
-        // изображения парсятся по тегам. нужно соответствие между категорией и тегами.
-        $tags = GalleryCategoryAggregator::getAssociatedTags($category);
-
-//        $logger->info('assotiated tags: ', [$tags]);
+        $logger->info('category: ', [$category->name]);
 
         $filter = '';
-        if($tags){
-            foreach($tags as $tagID){
+        if($category->associatedTags){
+            $logger->info('associated tags: ', [$category->associatedTags]);
+            foreach($category->associatedTags as $tagID){
                 $filter .= "concat(',',tags,',') like '%,$tagID,%' and ";
             }
         }
         $filter .= 'true';
-
-//        $logger->info('filter: ', [$filter]);
 
         $query = <<<QUERY
 select
@@ -98,7 +92,6 @@ offset ?
 QUERY;
         $sql = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
 
-        $logger->info('sql: ', [$sql]);
 
 
         return DB::select($sql, [self::$screen, self::$sizeDiffusionLimit, self::$postsChunkSize, self::$offset]);
