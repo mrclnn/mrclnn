@@ -27,8 +27,8 @@
     </div>
     <ul id="menu">
         @foreach($categories as $category)
-            <li class="category" data-value="{{$category}}" data-tag="{{$category}}">
-                <span class="category-name">{{$category}}</span>
+            <li class="category" data-value="{{$category->name}}" data-tag="{{$category->name}}">
+                <span class="category-name">{{$category->name}}</span>
                 <span class="category_count">1</span>
             </li>
         @endforeach

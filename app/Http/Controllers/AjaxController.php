@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 
 use App\GalleryCategoryAggregator;
+use App\GalleryCategoryModel;
 use App\GalleryPostAggregator;
 use App\Helper;
 use App\Jobs\ParserJob;
@@ -271,14 +272,11 @@ OFFSET ?
     private function getQuery() : array
     {
 
-        // нужно получить все данные у запроса
-        $postsLimit = 40;
-
         // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
         // в качестве дефолтного значения можно оставить 1 для квадратных изображений
-        $screen = $this->request['screen'] ?? 1;
-        $offset = $this->request['offset'] ?? 0;
-        $requestedCategory = $this->request['get'];
+        $screen = (float)$this->request['screen'] ?? 1;
+        $offset = (int)$this->request['offset'] ?? 0;
+        $requestedCategory = (string)$this->request['get'];
 
 
         $postsConfig = [
@@ -289,20 +287,17 @@ OFFSET ?
         // получить список категорий отображение которых в данный момент валидно
         // для этого модель для таблицы категорий: получить список валидных категорий
 
-        $enabledCategories = GalleryCategoryAggregator::getEnabledCategories();
-//        $this->logger->info('enabled categories: ', [$enabledCategories]);
-        if(in_array($requestedCategory, $enabledCategories)){
-            // можно продолжать работу
-            $this->logger->info("requested category $requestedCategory found in list of enabled");
-            GalleryPostAggregator::getPosts($requestedCategory, $postsConfig);
+        $category = new GalleryCategoryModel();
+        $category = $category->getCategoryFromName($requestedCategory);
 
+        if($category && $category->enabled){
+            $this->logger->info("requested category $requestedCategory found in list of enabled");
+            return GalleryPostAggregator::getPosts($category, $postsConfig);
         } else {
             $this->logger->info("requested category $requestedCategory not found or disabled");
-            // запрашиваемой категории нет или она отключена
             return [];
         }
 
-        return GalleryPostAggregator::getPosts($requestedCategory, $postsConfig);
 
 
     }

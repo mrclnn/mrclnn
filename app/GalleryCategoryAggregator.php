@@ -6,34 +6,27 @@ use Illuminate\Support\Facades\DB;
 
 class GalleryCategoryAggregator
 {
+    private static array $enabledCategories;
     public static function getEnabledCategories() : array
     {
+
+        if(isset(self::$enabledCategories)) return self::$enabledCategories;
+        // тут нужно получать массив из объектов категорий
         $query = <<<QUERY
 select 
-    name
+    id
 from categories
 where
     enabled = 1
 QUERY;
-        $enabledCategories = DB::select($query);
-        $namesOfEnabledCategories = [];
-        foreach($enabledCategories as $enabledCategory){
-            $namesOfEnabledCategories[] = $enabledCategory->name;
+        $enabledCategoriesIDs = DB::select($query);
+        foreach($enabledCategoriesIDs as $enabledCategory){
+            $category = new GalleryCategoryModel();
+            $category = $category->getCategoryFromId($enabledCategory->id);
+            if($category) self::$enabledCategories[] = $category;
         }
-        return $namesOfEnabledCategories;
+        return self::$enabledCategories;
     }
-    public static function getAssociatedTags(string $category) : ?array
-    {
-        $query = <<<QUERY
-select
-    associated_tags
-from categories
-where
-    enabled = 1 and
-    name = ?
-QUERY;
-        $tagsString = DB::select($query, [$category])[0]->associated_tags;
-        return $tagsString ? explode(',', $tagsString) : null;
 
     }
 }
