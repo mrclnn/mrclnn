@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', 'MainController@execute');
 
 Route::get('/gallery/view', 'GalleryViewerController@execute');
+Route::get('/gallery', 'GalleryMainController@execute');
 
 Route::get('/gallery/config', 'GalleryConfigController@execute');
 Route::get('/filmlist', 'FilmListConroller@exec');

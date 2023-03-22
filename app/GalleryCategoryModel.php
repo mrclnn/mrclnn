@@ -45,6 +45,17 @@ QUERY;
 
     }
 
+    public function getFakeCategory(string $associatedTags) : GalleryCategoryModel
+    {
+        $this->id = 0;
+        $this->name = 'FakeTemporaryCategory';
+        $this->associatedTags = $associatedTags ? explode(',', $associatedTags) : [];
+        $this->enabled = false;
+        $this->count = $this->countPosts();
+
+        return $this;
+    }
+
     public function countPosts(){
         if(!isset($this->id)) return 0;
         $posts = GalleryPostAggregator::getPosts($this);

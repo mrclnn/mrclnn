@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\GalleryCategoryAggregator;
 use App\GalleryCategoryModel;
 use App\GalleryPostAggregator;
+use App\GalleryTagAggregator;
 use App\Helper;
 use App\Jobs\ParserJob;
 use App\Services\ImageHash;
@@ -59,6 +60,10 @@ class AjaxController extends Controller
     private function processQuery() : ?array
     {
         if(isset($this->request['get'])) return $this->getQuery();
+        if(isset($this->request['searchTag'])) return $this->searchTagQuery();
+        if(isset($this->request['addCategory'])) return $this->addCategoryQuery();
+        if(isset($this->request['deleteCategory'])) return $this->deleteCategoryQuery();
+        if(isset($this->request['checkCategoryCount'])) return $this->checkCategoryCount();
         if(isset($this->request['estimate'])) return $this->estimateQuery();
         if(isset($this->request['search'])) return $this->searchQuery();
         if(isset($this->request['shown'])) return $this->shownQuery();
@@ -76,6 +81,44 @@ class AjaxController extends Controller
 
         return null;
     }
+
+    private function searchTagQuery() : array
+    {
+        $searchWord = (string)$this->request['searchTag'];
+        $foundTags = GalleryTagAggregator::searchTag($searchWord);
+        return [
+            'tags' => $foundTags
+        ];
+    }
+
+    private function addCategoryQuery() : array
+    {
+        $categoryName = (string)$this->request['name'];
+        $associatedTags = (string)$this->request['associatedTags'];
+        $success = GalleryCategoryAggregator::addCategory($categoryName, $associatedTags);
+        return [
+            'success' => $success
+        ];
+    }
+
+    private function checkCategoryCount()
+    {
+        $associatedTags = (string)$this->request['associatedTags'];
+        $preCategoryCount = GalleryCategoryAggregator::checkAssociatedTagsCount($associatedTags);
+        return [
+            'count' => $preCategoryCount
+        ];
+    }
+
+    private function deleteCategoryQuery()
+    {
+        $categoryID = (int)$this->request['categoryID'];
+        $success = GalleryCategoryAggregator::deleteCategory($categoryID);
+        return [
+            'success' => $success
+        ];
+    }
+
     private function notalone(){
         return NotaloneService::process($this->request);
     }

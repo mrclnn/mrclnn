@@ -1,0 +1,15 @@
+#matchedTags,
+#selected-tags{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+}
+.matchedTag:hover,
+.selectedTag:hover{
+    cursor:pointer;
+    background-color: #eee;
+}
+.category{
+    padding: 10px 0;
+}
