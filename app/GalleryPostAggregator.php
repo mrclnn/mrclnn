@@ -81,9 +81,7 @@ select
     tags_copyright
 from
 (select
-    (select count(*) from posts where true and
-                                    # PLACE FOR WHERE #
-                                    ) as count,
+    0 as count,
     file_name,
     status,
     ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1) AS size,
@@ -97,7 +95,7 @@ from posts
 where 
     true and
     # PLACE FOR WHERE #
-order by size, shown, rand()) as allPosts
+order by shown, size, rand()) as allPosts
 # PLACE FOR LIMIT #
 # PLACE FOR OFFSET #
 QUERY;

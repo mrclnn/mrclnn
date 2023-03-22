@@ -21,7 +21,8 @@ select
     id,
     name,
     associated_tags,
-    enabled
+    enabled,
+    count
 from categories
 where id = ?
 QUERY;
@@ -36,7 +37,8 @@ select
     id,
     name,
     associated_tags,
-    enabled
+    enabled,
+    count
 from categories
 where name = ?
 QUERY;
@@ -45,7 +47,19 @@ QUERY;
 
     }
 
-    public function countPosts(){
+    public function getFakeCategory(string $associatedTags) : GalleryCategoryModel
+    {
+        $this->id = 0;
+        $this->name = 'FakeTemporaryCategory';
+        $this->associatedTags = $associatedTags ? explode(',', $associatedTags) : [];
+        $this->enabled = false;
+        $this->count = $this->countPosts();
+
+        return $this;
+    }
+
+    public function countPosts() : int
+    {
         if(!isset($this->id)) return 0;
         $posts = GalleryPostAggregator::getPosts($this);
         return count($posts);
@@ -59,7 +73,7 @@ QUERY;
         $this->name = (string)$res[0]->name;
         $this->associatedTags = $res[0]->associated_tags ? explode(',', (string)$res[0]->associated_tags) : [];
         $this->enabled = (bool)$res[0]->enabled;
-        $this->count = $this->countPosts();
+        $this->count = (int)$res[0]->count;
 
         return $this;
     }

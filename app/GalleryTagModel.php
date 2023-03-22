@@ -23,7 +23,29 @@ enabled
 from tags
 where tag = ?
 QUERY;
-        $res = DB::select($query, [$name]);
+        $params = [$name];
+        return $this->getTag($query, $params);
+    }
+    public function getTagFromId(int $id) : ?GalleryTagModel
+    {
+        $query = <<<QUERY
+select
+id,
+type,
+tag,
+count,
+enabled
+from tags
+where id = ?
+QUERY;
+        $params = [$id];
+        return $this->getTag($query, $params);
+
+    }
+
+    private function getTag(string $query, array $params) : ?GalleryTagModel
+    {
+        $res = DB::select($query, $params);
         if(empty($res)) return null;
 
         $this->id = (int)$res[0]->id;
