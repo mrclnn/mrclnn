@@ -95,7 +95,8 @@ class AjaxController extends Controller
     {
         $categoryName = (string)$this->request['name'];
         $associatedTags = (string)$this->request['associatedTags'];
-        $success = GalleryCategoryAggregator::addCategory($categoryName, $associatedTags);
+        $count = (int)$this->request['count'];
+        $success = GalleryCategoryAggregator::addCategory($categoryName, $associatedTags, $count);
         return [
             'success' => $success
         ];

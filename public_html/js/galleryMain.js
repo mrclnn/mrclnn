@@ -112,11 +112,9 @@ let addCategoryFrame = {
     searchTag : function(searchWord){
         this.dom.matchedTags.innerHTML = '';
         if(searchWord.length < 3){
-            console.log('searched word is to small')
             return;
         }
-        console.log('searching word: '+searchWord);
-        console.log('sending searchTag request...');
+        console.log('searching word: '+searchWord+'...');
         sendRequest('/ajax', {searchTag: searchWord}, function(answer){
             console.log(answer.tags);
             answer.tags.forEach(function(tag){
@@ -125,28 +123,24 @@ let addCategoryFrame = {
         }.bind(this))
     },
     checkCategory : function(){
-        return this.dom.nameInput.value !== '';
-
+        return (this.dom.nameInput.value !== '') &&
+            (+this.dom.postsCount.innerHTML > 0);
     },
     getAssociatedTags : function(){
         let associatedTagsIds = [];
-        console.log(this.dom.selectedTags.children);
-        //todo нельзя перебирать forEach коллекцию которую возвращает .children, есть обходные пути.
         let selectedTags = collectionToArray(this.dom.selectedTags.children);
         if(selectedTags === false){
             console.log('given not HTMLCollection. Returning');
             return null;
         }
-        // return false;
         selectedTags.forEach(function(tag){
-            console.log(tag);
             associatedTagsIds.push(tag.dataset.id);
         })
         return associatedTagsIds;
     },
     createCategory : function(){
         if(!this.checkCategory()){
-            console.log('category not filled, return');
+            console.log('category not filled, or posts count is 0. return');
             return;
         }
         let associatedTags = this.getAssociatedTags();
@@ -156,6 +150,7 @@ let addCategoryFrame = {
         }
         let query = {
             addCategory : true,
+            count : +this.dom.postsCount.innerHTML,
             name : this.dom.nameInput.value.trim(),
             associatedTags : associatedTags.toString()
         }

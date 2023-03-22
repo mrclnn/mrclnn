@@ -11,6 +11,7 @@ class GalleryCategoryAggregator
     {
 
         if(isset(self::$enabledCategories)) return self::$enabledCategories;
+        self::$enabledCategories = [];
         $query = <<<QUERY
 select 
     id
@@ -27,7 +28,7 @@ QUERY;
         return self::$enabledCategories;
     }
 
-    public static function addCategory(string $categoryName, string $associatedTags) : bool
+    public static function addCategory(string $categoryName, string $associatedTags, int $count = 0) : bool
     {
         $query = <<<QUERY
 insert into categories
@@ -37,7 +38,8 @@ insert into categories
      tag,
      tag_alias,
      enabled,
-     associated_tags
+     associated_tags,
+     count
     )
 values
     (
@@ -46,10 +48,11 @@ values
      'tag',
      'tag_alias',
      1,
+     ?,
      ?
     )
 QUERY;
-        DB::select($query, [$categoryName, $associatedTags]);
+        DB::select($query, [$categoryName, $associatedTags, $count]);
         //todo дописать тут условие обработку ошибок
         return true;
 

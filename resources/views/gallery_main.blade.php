@@ -17,12 +17,16 @@
 <body>
 <h1>this is main gallery page</h1>
 <div id="categories-container">
-    @foreach($categories as $category)
-    <div class="category" data-id="{{$category->id}}">
-        <span class="category-name">{{$category->name}}</span>
-        <input type="button" class="delete-category" value="delete category">
-    </div>
-    @endforeach
+    @if(count($categories) > 0)
+        @foreach($categories as $category)
+            <div class="category" data-id="{{$category->id}}">
+                <span class="category-name">{{$category->name}}</span>
+                <input type="button" class="delete-category" value="delete category">
+            </div>
+        @endforeach
+    @else
+        <h3>not found categories</h3>
+    @endif
     <div id="add-category-frame">
         <input type="text" name="add-category-name" id="add-category-name" placeholder="name of category">
         <input type="text" name="tagSearch" id="tagSearch" placeholder="search tags">
