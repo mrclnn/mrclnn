@@ -338,7 +338,25 @@ OFFSET ?
 
         if($category && $category->enabled){
             $this->logger->info("requested category $requestedCategory found in list of enabled");
-            return GalleryPostAggregator::getPosts($category, $postsConfig);
+            $answer = [];
+            $posts = GalleryPostAggregator::getPosts($category, $postsConfig);
+            foreach($posts as $post){
+                $tags = [];
+                foreach($post->tags as $tag){
+                    if(!isset($tags[$tag->type])) $tags[$tag->type] = [];
+                    $tags[$tag->type][] = $tag->tag;
+                }
+
+                $answer[] = [
+                    'file_name' => $post->fileName,
+                    'shown' => $post->shown,
+                    'status' => $post->statusId,
+                    'width' => $post->width,
+                    'height' => $post->height,
+                    'tags' => $tags,
+                ];
+            }
+            return $answer;
         } else {
             $this->logger->info("requested category $requestedCategory not found or disabled");
             return [];

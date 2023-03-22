@@ -25,7 +25,9 @@ class GalleryPostModel extends Model
     // TODO возможно не стоит добавлять это поле
     public string $debug;
     public string $hash;
-    public array $tags;
+    public array $tagsIds;
+
+    public array $tags = [];
 
     public function getById(int $id) : ?GalleryPostModel
     {
@@ -67,16 +69,29 @@ QUERY;
         $this->originUri = (string)$postFromDB[0]->original_uri;
         $this->postId = (int)$postFromDB[0]->post_id;
         $this->hash = (string)$postFromDB[0]->hash;
-        $this->tags = explode(',', (string)$postFromDB[0]->tags);
+        $this->tagsIds = explode(',', (string)$postFromDB[0]->tags);
 
         return $this;
 
     }
 
+    public function getTags() : array
+    {
+        if(!empty($this->tags)) return $this->tags;
+        if(empty($this->tagsIds)) return [];
+        $this->tags = GalleryTagAggregator::getFromIDs($this->tagsIds);
+        return $this->tags;
+    }
+
+    public function getByData(object $data)
+    {
+
+    }
+
     public function setTags(array $tags) : bool
+    {
         //todo по идее можно брать список уже записанных сюда тегов, разбирать на массив, сравнивать два массива и добавлять недостающие.
         //т.е. не перезаписывать список тегов, а дополнять если какого-то нет
-    {
         $tagsList = implode(',', $tags);
         $query = <<<QUERY
 update
