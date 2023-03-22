@@ -23,13 +23,9 @@ class GalleryPostAggregator{
 
     private static int $offset;
 
-
-
-    public static function countAll(){
-        $query = <<<COUNTALL
-select count(id) as sum from posts
-COUNTALL;
-        return DB::select($query)[0]->sum;
+    public static function countAll() : int
+    {
+        return (int)(DB::select('select count(*) as count from posts where status != 0')[0]->count);
     }
 
     public static function getPosts(GalleryCategoryModel $category, array $config = []){
@@ -68,44 +64,32 @@ COUNTALL;
 
 
         $query = <<<QUERY
-select
-    count,
-    file_name,
-    status,
-    size,
-    shown,
-    width,
-    height,
-    tags_artist as artists,
-    tags_character,
-    tags_copyright
-from
-(select
-    0 as count,
-    file_name,
-    status,
-    ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1) AS size,
-    shown,
-    width,
-    height,
-    tags_artist,
-    tags_character,
-    tags_copyright
-from posts
-where 
-    true and
-    # PLACE FOR WHERE #
-order by shown, size, rand()) as allPosts
+select id from
+(select id from posts
+where status != 0
+# PLACE FOR WHERE #
+order by shown, ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1), rand()) as allPosts
 # PLACE FOR LIMIT #
 # PLACE FOR OFFSET #
 QUERY;
-        $sql = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
+        $sql = preg_replace('/# PLACE FOR WHERE #/', "and $filter", $query);
         $sql = preg_replace('/# PLACE FOR LIMIT #/', $limit, $sql);
         $sql = preg_replace('/# PLACE FOR OFFSET #/', $offset, $sql);
 
-        $logger->info($sql);
+//        $logger->info($sql);
 
-        return DB::select($sql, [self::$screen, self::$sizeDiffusionLimit]);
+        $postIDs = DB::select($sql, [self::$screen, self::$sizeDiffusionLimit]);
+        $posts = [];
+        foreach($postIDs as $postID){
+            $post = new GalleryPostModel();
+            $post->getById($postID->id);
+            $post->getTags();
+            $posts[] = $post;
+        }
+
+//        $logger->info('posts: ',[$posts[0]->tags]);
+
+        return $posts;
     }
     private static function setConfig(array $config){
         if(isset($config['screen'])){

@@ -43,6 +43,20 @@ QUERY;
 
     }
 
+    public function getFromData(object $data) : GalleryTagModel
+    {
+        // подразумевается что object $data это полученное из базы данных представление в Aggregator
+        $this->id = $data->id ?? null;
+        $this->type = $data->type ?? null;
+        $this->tag = $data->tag ?? null;
+        $this->count = $data->count ?? null;
+        $this->enabled = $data->enabled ?? null;
+
+        return $this;
+    }
+
+
+
     private function getTag(string $query, array $params) : ?GalleryTagModel
     {
         $res = DB::select($query, $params);

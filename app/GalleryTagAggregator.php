@@ -40,4 +40,27 @@ QUERY;
         return $tags;
 
     }
+
+    public static function getFromIDs(array $idList) : ?array
+    {
+        if(empty($idList)) return null;
+        $idList = implode(',', $idList);
+        $query = "select
+    id,
+    tag,
+    type,
+    count,
+    enabled
+from tags
+where id in ($idList)";
+        $tagsInfo = DB::select($query, [$idList]);
+        $tags = [];
+        foreach($tagsInfo as $tagInfo){
+            $tag = new GalleryTagModel();
+            $tag->getFromData($tagInfo);
+            $tags[] = $tag;
+        }
+        return $tags;
+
+    }
 }

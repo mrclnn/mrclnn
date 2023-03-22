@@ -53,7 +53,7 @@ QUERY;
         $this->name = 'FakeTemporaryCategory';
         $this->associatedTags = $associatedTags ? explode(',', $associatedTags) : [];
         $this->enabled = false;
-        $this->count = $this->countPosts();
+        $this->count = $associatedTags ? $this->countPosts() : GalleryPostAggregator::countAll();
 
         return $this;
     }

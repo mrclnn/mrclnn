@@ -58,6 +58,9 @@ window.onload = function(){
 }
 
 var app = {
+    info : function(){
+        this.slider.currentPic.printTags();
+    },
     UI : {
         DOM : {
             controllsContainer : null,
@@ -124,7 +127,7 @@ var app = {
                     }
                 });
                 document.addEventListener('keyup', function(e){
-                    console.log(e.key);
+                    // console.log(e.key);
                     switch (e.key) {
 
                         case 'ArrowRight':
@@ -519,8 +522,8 @@ var app = {
             if(this.i + 1 === this.max){
                 alert('Вы дошли до конца Internet...');
             }
-            console.log('this.i = ' +this.i);
-            console.log('this.max = ' +this.max);
+            // console.log('this.i = ' +this.i);
+            // console.log('this.max = ' +this.max);
             this.currentPic = this.pics[++this.i < this.max ? this.i : --this.i];
             this.currentPic.render();
             this.setTitle();
@@ -552,7 +555,7 @@ var app = {
         },
         setPics : function(pics, additional = false){
 
-            console.log(pics);
+            // console.log(pics);
 
             if(additional){
                 this.pics.splice(this.i + 2);
@@ -660,9 +663,11 @@ class Pic {
         // console.log(params);
         this.name = params.file_name;
         this.q = params.q;
-        this.tags_artist = params.artists.split(' ');
-        this.tags_char = params.tags_character.split(' ');
-        this.tags_fan = params.tags_copyright.split(' ');
+        this.tags_artist = params.tags.artist ?? [''];
+        this.tags_char = params.tags.character ?? [''];
+        this.tags_fan = params.tags.copyright ?? [''];
+        this.tags_meta = params.tags.metadata ?? [''];
+        this.tags_general = params.tags.general ?? [''];
         this.shown = params.shown;
         this.src = '/img/' + params.file_name;
         this.fav = params.status === 2;
@@ -682,6 +687,22 @@ class Pic {
         this.cashed = true;
         return this;
     }
+    printTags(){
+        console.log('ARTIST:');
+        console.log(this.tags_artist)
+
+        console.log('COPYRIGHT:');
+        console.log(this.tags_fan)
+
+        console.log('CHARACTER:');
+        console.log(this.tags_char)
+
+        console.log('META:');
+        console.log(this.tags_meta)
+
+        console.log('GENERAL:');
+        console.log(this.tags_general)
+    }
     render(){
         // console.log(this);
         app.UI.canvas.clear();
@@ -692,7 +713,7 @@ class Pic {
         // app.UI.DOM.pic_info.innerHTML = '<p>'+this.artists+'</p><p>'+this.q+'</p>';
         if(!slider.viewed.includes(this.name)){
             slider.viewed.push(this.name);
-            console.log(slider.viewed);
+            // console.log(slider.viewed);
             if(slider.viewed.length > 20){
                 slider.sendViewed();
             }
@@ -710,8 +731,6 @@ class Pic {
                 if(artist !== '') app.UI.DOM.pic_artist_list.innerHTML += '<li class="pic-filter">'+artist+'</li>';
             });
         }
-        console.log(this.tags_char.length);
-        console.log(this.tags_char);
         if(this.tags_char.length === 1 && this.tags_char[0] === ''){
             app.UI.DOM.pic_char_list.innerHTML = '—';
         } else {
