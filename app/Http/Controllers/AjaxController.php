@@ -94,18 +94,29 @@ class AjaxController extends Controller
     private function addCategoryQuery() : array
     {
         $categoryName = (string)$this->request['name'];
-        $associatedTags = (string)$this->request['associatedTags'];
+        $extendTags = (string)$this->request['extendTags'];
+        $excludeTags = (string)$this->request['excludeTags'];
+        $includeTags = (string)$this->request['includeTags'];
+        $tags = compact(['extendTags', 'excludeTags', 'includeTags']);
         $count = (int)$this->request['count'];
-        $success = GalleryCategoryAggregator::addCategory($categoryName, $associatedTags, $count);
+        $success = GalleryCategoryAggregator::addCategory($categoryName, $tags, $count);
         return [
             'success' => $success
         ];
     }
 
-    private function checkCategoryCount()
+    private function checkCategoryCount(): array
     {
-        $associatedTags = (string)$this->request['associatedTags'];
-        $preCategoryCount = GalleryCategoryAggregator::checkAssociatedTagsCount($associatedTags);
+
+        $extendTags = (string)$this->request['extendTags'];
+        $excludeTags = (string)$this->request['excludeTags'];
+        $includeTags = (string)$this->request['includeTags'];
+
+        $tags = compact(['extendTags', 'excludeTags', 'includeTags']);
+
+        $this->logger->info('tags: ', [$tags]);
+
+        $preCategoryCount = GalleryCategoryAggregator::checkAssociatedTagsCount($tags);
         return [
             'count' => $preCategoryCount
         ];
@@ -333,8 +344,7 @@ OFFSET ?
         // получить список категорий отображение которых в данный момент валидно
         // для этого модель для таблицы категорий: получить список валидных категорий
 
-        $category = new GalleryCategoryModel();
-        $category = $category->getCategoryFromName($requestedCategory);
+        $category = GalleryCategoryAggregator::getFromName($requestedCategory);
 
         if($category && $category->enabled){
             $this->logger->info("requested category $requestedCategory found in list of enabled");
@@ -441,6 +451,7 @@ OFFSET ?
     private function shownQuery() : array
     {
         try{
+            //todo здесь можно после отметки просмотренного проверять все ли посты уже просмотрены и снимать все shown метки
             $affected = DB::table('posts')->whereIn('file_name', $this->request['posts'])->update(['shown' => 1]);
             $this->logger->debug('IM HERE '.$this->request['posts']);
             foreach ($this->request['posts'] as $post){

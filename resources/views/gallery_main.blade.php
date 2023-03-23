@@ -16,7 +16,25 @@
 </head>
 <body>
 <h1>this is main gallery page</h1>
+<div id="add-category-frame">
+    <input type="text" name="add-category-name" id="add-category-name" placeholder="name of category">
+
+    <input type="text" class="search-tag" id="extend-search" placeholder="EXTEND TAGS">
+    <input type="text" class="search-tag" id="exclude-search" placeholder="EXCLUDE TAGS">
+    <input type="text" class="search-tag" id="include-search" placeholder="INCLUDE TAGS">
+
+    <span id="posts-count"></span>
+    <ul id="matched-tags"></ul>
+
+    <ul class="selected-tags" id="extended-tags"></ul>
+    <ul class="selected-tags" id="excluded-tags"></ul>
+    <ul class="selected-tags" id="included-tags"></ul>
+
+    <input type="button" name="clear" id="clear" value="clear">
+    <input type="button" name="add-category" id="add-category" value="add category">
+</div>
 <div id="categories-container">
+
     @if(count($categories) > 0)
         @foreach($categories as $category)
             <div class="category" data-id="{{$category->id}}">
@@ -27,15 +45,6 @@
     @else
         <h3>not found categories</h3>
     @endif
-    <div id="add-category-frame">
-        <input type="text" name="add-category-name" id="add-category-name" placeholder="name of category">
-        <input type="text" name="tagSearch" id="tagSearch" placeholder="search tags">
-        <span id="posts-count"></span>
-        <ul id="matchedTags"></ul>
-        <ul id="selected-tags"></ul>
-        <input type="button" name="clear" id="clear" value="clear">
-        <input type="button" name="add-category" id="add-category" value="add category">
-    </div>
 </div>
 </body>
 </html>

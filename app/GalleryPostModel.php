@@ -29,51 +29,7 @@ class GalleryPostModel extends Model
 
     public array $tags = [];
 
-    public function getById(int $id) : ?GalleryPostModel
-    {
 
-        $query = <<<QUERY
-select
-    id,
-    category_id,
-    status,
-    file_name,
-    width,
-    height,
-    shown,
-    size,
-    created_at,
-    original_uri,
-    post_id,
-    estimate_at,
-    hash,
-    tags
-from posts
-where id = ?
-QUERY;
-        $postFromDB = DB::select($query, [$id]);
-
-        if(empty($postFromDB)) return null;
-
-        $this->id = (int)$postFromDB[0]->id;
-        $this->categoryId = (int)$postFromDB[0]->category_id;
-        $this->statusId = (int)$postFromDB[0]->status;
-        $this->fileName = (string)$postFromDB[0]->file_name;
-        $this->width = (int)$postFromDB[0]->width;
-        $this->height = (int)$postFromDB[0]->height;
-        $this->shown = (bool)$postFromDB[0]->shown;
-        $this->size = (int)$postFromDB[0]->size;
-        //todo запись в виде даты сделать здесь
-        $this->createdAt = (string)$postFromDB[0]->created_at;
-        $this->estimateAt = (string)$postFromDB[0]->estimate_at;
-        $this->originUri = (string)$postFromDB[0]->original_uri;
-        $this->postId = (int)$postFromDB[0]->post_id;
-        $this->hash = (string)$postFromDB[0]->hash;
-        $this->tagsIds = explode(',', (string)$postFromDB[0]->tags);
-
-        return $this;
-
-    }
 
     public function getTags() : array
     {
@@ -83,28 +39,46 @@ QUERY;
         return $this->tags;
     }
 
-    public function getByData(object $data)
+    public function fillByDBData(object $data): GalleryPostModel
     {
 
+        $this->id = isset($data->id) ? (int)$data->id : null;
+        $this->categoryId = isset($data->category_id) ? (int)$data->category_id : null;
+        $this->statusId = isset($data->status) ? (int)$data->status : 0;
+        $this->fileName = isset($data->file_name) ? (string)$data->file_name : null;
+        $this->width = isset($data->width) ? (int)$data->width : null;
+        $this->height = isset($data->height) ? (int)$data->height : null;
+        $this->shown = isset($data->shown) ? (bool)$data->shown : null;
+        $this->size = isset($data->size) ? (int)$data->size : null;
+        //todo запись в виде даты сделать здесь
+        $this->createdAt = isset($data->created_at) ? (string)$data->created_at : null;
+        $this->estimateAt = isset($data->estimate_at) ? (string)$data->estimate_at : '';
+        $this->originUri = isset($data->original_uri) ? (string)$data->original_uri : null;
+        $this->postId = isset($data->post_id) ? (int)$data->post_id : null;
+        $this->hash = isset($data->hash) ? (string)$data->hash : null;
+        $this->tagsIds = isset($data->tags) ? explode(',', (string)$data->tags) : [];
+        $this->tags = $this->getTags();
+
+        return $this;
     }
 
-    public function setTags(array $tags) : bool
-    {
-        //todo по идее можно брать список уже записанных сюда тегов, разбирать на массив, сравнивать два массива и добавлять недостающие.
-        //т.е. не перезаписывать список тегов, а дополнять если какого-то нет
-        $tagsList = implode(',', $tags);
-        $query = <<<QUERY
-update
-posts
-set tags = ?
-where id = ?
-QUERY;
-        //todo нужно запилить проверку заполнен ли объект, что-то типа isValid потому что если не заполнен id то тут будет пиздец
-        DB::select($query, [$tagsList, $this->id]);
-        //todo тут должно возвращаться не только true доработать этот момент
-        return true;
-
-    }
+//    public function setTags(array $tags) : bool
+//    {
+//        //todo по идее можно брать список уже записанных сюда тегов, разбирать на массив, сравнивать два массива и добавлять недостающие.
+//        //т.е. не перезаписывать список тегов, а дополнять если какого-то нет
+//        $tagsList = implode(',', $tags);
+//        $query = <<<QUERY
+//update
+//posts
+//set tags = ?
+//where id = ?
+//QUERY;
+//        //todo нужно запилить проверку заполнен ли объект, что-то типа isValid потому что если не заполнен id то тут будет пиздец
+//        DB::select($query, [$tagsList, $this->id]);
+//        //todo тут должно возвращаться не только true доработать этот момент
+//        return true;
+//
+//    }
 
 
     // соответствие полей-свойств согласно таблице в бд

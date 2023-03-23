@@ -1,9 +1,10 @@
-#matchedTags,
-#selected-tags{
+#matched-tags,
+.selected-tags{
     list-style: none;
     margin: 0;
-    padding: 0;
     position: absolute;
+    background-color: #fff;
+    padding: 5px;
 }
 .matchedTag:hover,
 .selectedTag:hover{
@@ -11,5 +12,15 @@
     background-color: #eee;
 }
 .category{
-    padding: 10px 0;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 5px;
+}
+
+#add-category-frame{
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 40px;
 }
