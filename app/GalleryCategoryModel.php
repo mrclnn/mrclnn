@@ -3,78 +3,71 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
 
 class GalleryCategoryModel extends Model
 {
 
     public int $id;
     public string $name;
-    public array $associatedTags;
     public bool $enabled;
-    //todo заменить это полем базы данных
     public int $count;
-    public function getCategoryFromId(int $id) :?GalleryCategoryModel
-    {
-        $query = <<<QUERY
-select
-    id,
-    name,
-    associated_tags,
-    enabled,
-    count
-from categories
-where id = ?
-QUERY;
-        $params = [$id];
-        return $this->getCategory($query, $params);
 
-    }
-    public function getCategoryFromName(string $name) :?GalleryCategoryModel
-    {
-        $query = <<<QUERY
-select
-    id,
-    name,
-    associated_tags,
-    enabled,
-    count
-from categories
-where name = ?
-QUERY;
-        $params = [$name];
-        return $this->getCategory($query, $params);
+    public array $associatedTags;
+    public array $excludeTags;
+    public array $extendTags;
+    public array $includeTags;
 
-    }
-
-    public function getFakeCategory(string $associatedTags) : GalleryCategoryModel
+    public function fillFromDBData(object $data): GalleryCategoryModel
     {
-        $this->id = 0;
-        $this->name = 'FakeTemporaryCategory';
-        $this->associatedTags = $associatedTags ? explode(',', $associatedTags) : [];
-        $this->enabled = false;
-        $this->count = $associatedTags ? $this->countPosts() : GalleryPostAggregator::countAll();
+        $this->id = isset($data->id) ? (int)$data->id : null;
+        $this->name = isset($data->name) ? (string)$data->name : null;
+        $this->enabled = isset($data->enabled) ? (bool)$data->enabled : null;
+        $this->count = isset($data->count) ? (int)$data->count : 0;
+
+        $extendTags = isset($data->extend_tags) ? (string)$data->extend_tags : '';
+        $excludeTags = isset($data->exclude_tags) ? (string)$data->exclude_tags : '';
+        $includeTags = isset($data->include_tags) ? (string)$data->include_tags : '';
+
+        $this->setTags($extendTags, $excludeTags, $includeTags);
+//        $associatedTags = isset($data->associated_tags) ? (string)$data->associated_tags : '';
+//        $this->setAssociatedTags($associatedTags);
 
         return $this;
+
     }
 
-    public function countPosts() : int
+    public function reCount(): GalleryCategoryModel
     {
-        if(!isset($this->id)) return 0;
+        if (!isset($this->id)) return $this;
+        if (empty($this->excludeTags) and empty($this->extendTags) and empty($this->includeTags)) {
+            $this->count = GalleryPostAggregator::countAll();
+            return $this;
+        }
         $posts = GalleryPostAggregator::getPosts($this);
-        return count($posts);
+        $this->count = count($posts);
+        return $this;
     }
-    private function getCategory(string $query, array $params) : ?GalleryCategoryModel
-    {
-        $res = DB::select($query, $params);
-        if(empty($res)) return null;
 
-        $this->id = (int)$res[0]->id;
-        $this->name = (string)$res[0]->name;
-        $this->associatedTags = $res[0]->associated_tags ? explode(',', (string)$res[0]->associated_tags) : [];
-        $this->enabled = (bool)$res[0]->enabled;
-        $this->count = (int)$res[0]->count;
+    public function setAssociatedTags(string $associatedTags): GalleryCategoryModel
+    {
+        // todo проверка на правильность строки, должна быть строка состоящая исключительно из цифр и запятых
+        $this->associatedTags = empty($associatedTags) ? [] : explode(',', $associatedTags);
+        return $this;
+    }
+
+    public function setTags(string $extendTags, string $excludeTags, string $includeTags): GalleryCategoryModel
+    {
+        $this->extendTags = $this->isValidString($extendTags) ? explode(',', $extendTags) : [];
+        $this->excludeTags = $this->isValidString($excludeTags) ? explode(',', $excludeTags) : [];
+        $this->includeTags = $this->isValidString($includeTags) ? explode(',', $includeTags) : [];
 
         return $this;
     }
+
+    private function isValidString(string $string): bool
+    {
+        return preg_match('/^[\d,]+$/', trim($string)) === 1;
+    }
+
+
 }
