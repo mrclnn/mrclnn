@@ -19,8 +19,8 @@
     <div class="title">
         <h4 id="title">welcom</h4>
 {{--        <span id="title_counter"></span>--}}
-        <img id="slideshow" data-mode="off" class="button" src="{{url('/img/forward.png?t')}}" alt="">
-        <img id="fullscreen" class="button" src="{{url('/img/fullscreen-enable.png?t')}}" alt="">
+        <img id="slideshow" data-mode="off" class="button" src="{{url('/img/play-icon.png?t')}}" alt="">
+        <img id="fullscreen" class="button" src="{{url('/img/full-screen-icon.png?t')}}" alt="">
     </div>
     <div class="search">
         <input type="text" id="search" placeholder="search..." autocomplete="off">

@@ -132,6 +132,7 @@ var app = {
 
                         case 'ArrowRight':
                             app.slider.next();
+                            console.log(app.slider.currentPic.shown);
                             break;
                         case 'ArrowLeft':
                             app.slider.prev();
@@ -222,11 +223,11 @@ var app = {
                     if(e.target.closest('#fullscreen')){
                         if(app.UI.state.fullscreenMode){
                             app.UI.closeFullscreen();
-                            fullscreen.setAttribute('src', '/img/fullscreen-enable.png?t');
+                            fullscreen.setAttribute('src', '/img/full-screen-icon.png?t');
                             app.UI.state.fullscreenMode = false;
                         } else {
                             app.UI.openFullscreen();
-                            fullscreen.setAttribute('src', '/img/fullscreen-disable.png?t');
+                            fullscreen.setAttribute('src', '/img/full-screen-icon.png?t');
                             app.UI.state.fullscreenMode = true;
                         }
                         return;
@@ -234,11 +235,11 @@ var app = {
                     if(e.target.closest('#slideshow')){
                         var button = e.target;
                         if(button.dataset.mode === 'off'){
-                            button.setAttribute('src', '/img/pause.png');
+                            button.setAttribute('src', '/img/pause-icon.png');
                             button.dataset.mode = 'on';
                             app.slider.slideshow.start();
                         } else {
-                            button.setAttribute('src', '/img/forward.png');
+                            button.setAttribute('src', '/img/play-icon.png');
                             button.dataset.mode = 'off';
                             app.slider.slideshow.stop();
                         }
@@ -467,7 +468,7 @@ var app = {
             if(this.viewed.length === 0) return;
             console.log(this.viewed.length);
             sendRequest('/ajax',{shown : true, posts : this.viewed}, function(answ){
-                console.log(answ);
+                // console.log(answ);
                 showInfo(answ.message);
             });
             this.viewed = [];
