@@ -11,19 +11,26 @@ use Monolog\Processor\PsrLogMessageProcessor;
 class GalleryPostAggregator
 {
 
-    // todo возможно стоит оставить это абстрактным классом
+    // todo выполняя неоднократно сложный sql запрос для разных целей возможно лучше было бы
+    // todo записывать результат выборки в отдельную временную таблицу или что-то вроде того
+
+    // todo дублирование кода при конструировании sql запроса в нескольких методах, переписать используя laravel инструменты для построения запросов
 
     private static Logger $logger;
 
-    private static int $postsChunkSize;
+    private static int $defaultChunkSize = 40;
 
     // Чем больше $sizeDiffusionLimit тем больше допуск к размеру экрана, тем больше возможные поля вокруг изображения.
     // Чем меньше $sizeDiffusionLimit тем точнее изображение будет соответствовать размеру экрана.
+
+    // todo подтягивать всю конфигурационную инфо из базы данных
     private static int $sizeDiffusionLimit = 3;
 
     private static float $screen = 1;
 
-    private static int $offset;
+    private static int $offset = 0;
+
+    private static string $filterQuery = '';
 
     public static function countAll(): int
     {
@@ -63,11 +70,13 @@ QUERY;
     {
         //todo по идее тут тоже должен возвращаться массив объектов postModel
         self::setConfig($config);
-        self::$logger->info('category: ', [$category->name]);
+        self::$logger->info('Requested category: ', [$category->name]);
 
-        $filter = self::getFilters($category);
-        $limit = isset(self::$postsChunkSize) ? "LIMIT " . self::$postsChunkSize : '';
-        $offset = isset(self::$offset) ? "OFFSET " . self::$offset : '';
+        if(self::needResetShown($category)) self::resetShown($category);
+
+        $filter = self::getCategoryFilters($category);
+        $limit = self::$defaultChunkSize > 0 ? "LIMIT " . self::$defaultChunkSize : '';
+        $offset = self::$offset > 0 ? "OFFSET " . self::$offset : '';
 
         //todo возможно нужно конструировать еще и order
         //todo Это все охуеть как не безопасно
@@ -91,8 +100,43 @@ QUERY;
 
     }
 
-    private static function getFilters(GalleryCategoryModel $category): string
+    private static function needResetShown(GalleryCategoryModel $category): ?bool
     {
+        $filter = self::getCategoryFilters($category);
+        $query = <<<QUERY
+select 
+count(*) as count
+from posts 
+where shown = 0
+# PLACE FOR WHERE #                                
+QUERY;
+        $query = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
+        $shownData = DB::select($query);
+        if(empty($shownData)) return null;
+        $countOfNotShown = (int)$shownData[0]->count;
+        self::$logger->info("$countOfNotShown fresh posts rest. chunk size: ".self::$defaultChunkSize);
+        return $countOfNotShown < self::$defaultChunkSize;
+
+
+    }
+
+    private static function resetShown(GalleryCategoryModel $category): void
+    {
+        self::$logger->info('resetting shown...');
+        $filter = self::getCategoryFilters($category);
+        $query = <<<QUERY
+update posts set shown = 0 where shown = 1 
+# PLACE FOR WHERE #
+QUERY;
+        $query = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
+        DB::select($query);
+        //todo дописать обработку ошибок
+
+    }
+
+    private static function getCategoryFilters(GalleryCategoryModel $category): string
+    {
+        if(!empty(self::$filterQuery)) return self::$filterQuery;
 
         if (!empty($category->extendTags)) {
             $extendFilter = array_map(function ($tagID) {
@@ -128,7 +172,8 @@ QUERY;
         } else {
             $includeFilter = 'true';
         }
-        return "and $extendFilter and $excludeFilter and $includeFilter";
+        self::$filterQuery = "and $extendFilter and $excludeFilter and $includeFilter";
+        return self::$filterQuery;
 
     }
 
@@ -136,14 +181,13 @@ QUERY;
     {
         if (empty(self::$logger)) self::setLogger();
 
+        if(empty($config)) self::$defaultChunkSize = 0;
+
         if (isset($config['screen'])) {
             self::$screen = (float)$config['screen'];
         }
         if (isset($config['offset'])) {
             self::$offset = (int)$config['offset'];
-        }
-        if (isset($config['chunkSize'])) {
-            self::$postsChunkSize = (int)$config['chunkSize'];
         }
     }
 
