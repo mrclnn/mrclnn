@@ -42,34 +42,48 @@ class ParserJobNew implements ShouldQueue
     public function handle()
     {
         $this->setLogger();
-        // todo 'category' -- нужно брать из конфига
         $categoryParser = ParserAggregator::getParser('category');
         if(!$categoryParser){
             $this->logger->error("Received invalid Parser for request word 'pagination', check config. End work.");
             return;
         }
-        // todo 'roropull' -- нужно брать из конфига
-        $tag = 'test';
-        $categoryParsingData = $categoryParser->parse([(($this->iteration) * 42), $tag]);
-        $lastPageHref = $categoryParsingData['pagination'][0]->attr['href'];
-        preg_match('/\d+$/', $lastPageHref, $lastPage);
-        if(!isset($lastPage) or empty($lastPage[0])){
-            $this->logger->error('Not found last page. End work');
-            return;
-        }
-        $lastPage = (int)$lastPage[0] / 42;
-        $currentPage = $this->iteration + 1;
+        //todo нужно упорядочить аргумент передаваемый в parse(); по сути это просто список гет значений для URL парсера
+        // соответственно нужно добавить поле "required" или типа того где указано каким должен быть аргумент
+        // кто будет конструировать объект-аргумент?
+        $categoryParsingData = $categoryParser->parse([$this->config->pid, $this->config->category]);
 
-        $this->logger->info("Start parsing $tag, page $currentPage/$lastPage...");
+
+        if(!isset($this->config->lastPage)){
+            //todo возможно нужно как-то различать ситуацию где в категории только одна страница и когда не удалось получить навигацию в принципе
+            if(empty($categoryParsingData['pagination'])){
+                $this->config->lastPage = 1;
+            } else {
+                $lastPageHref = $categoryParsingData['pagination'][0]->attr['href'];
+                preg_match('/\d+$/', $lastPageHref, $lastPage);
+                if(!isset($lastPage) or empty($lastPage[0])){
+                    $this->logger->error('Not found last page. End work');
+                    return;
+                }
+
+                $this->config->lastPage = (int)$lastPage[0] / 42;
+            }
+        }
+
+        $lastPage = $this->config->lastPage;
+        $currentPage = $this->config->iteration + 1;
+        $category = $this->config->category;
+        $this->logger->info("Start parsing $category, page $currentPage/$lastPage...");
 
         // как описать цикл именно по ключу posts ?
+        //todo реализовать это красивее
+        $alreadyExistCount = 0;
         foreach($categoryParsingData['posts'] as $i => $postHTML){
             $postURI = $postHTML->attr['href'];
             if(!$postURI){
                 $this->logger->error('Skip post: URI not found');
                 continue;
             }
-            $this->logger->info("Parsing post: $postURI");
+//            $this->logger->info("Parsing post: $postURI");
             $idFound = preg_match('/\d+$/', $postURI, $id) === 1;
             if(!$idFound){
                 $this->logger->error("Skip post: ID not found ($postURI)");
@@ -89,7 +103,15 @@ class ParserJobNew implements ShouldQueue
             }
             if($img->isExist()){
                 $this->logger->info("Skip post: Already exist ($postURI)");
-                continue;
+                $alreadyExistCount++;
+                $limit = 3;
+                if($alreadyExistCount > $limit){
+                    $this->logger->info("Found $limit existed posts in a row. skip current page...");
+                    break;
+                } else {
+                    continue;
+                }
+
             }
             try{
                 $success = $img->save();
@@ -106,11 +128,12 @@ class ParserJobNew implements ShouldQueue
 
         };
 
-        if($currentPage < $lastPage){
-            $this->logger->info("Go to next iteration...");
-            self::dispatch($this->config, ++$this->iteration)->delay(Carbon::now()->addSeconds(10));
-        } else {
+        $this->config->prepareNextIteration();
+        if($this->config->isItLastIteration){
             $this->logger->info("All $currentPage/$lastPage pages is parsed, end work.");
+        } else {
+            $this->logger->info("Go to next iteration...");
+            self::dispatch($this->config)->delay(Carbon::now()->addSeconds($this->config->delay));
         }
 
     }
