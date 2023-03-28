@@ -76,13 +76,15 @@ var app = {
             pic_artist_list : null,
             pic_fan_list : null,
             pic_char_list : null,
+            slideshowButton : null,
             init : function(){
                 this.controllsContainer = document.querySelector('#controls');
+                this.slideshowButton = this.controllsContainer.querySelector('#slideshow');
+                this.fullscreenButton = this.controllsContainer.querySelector('#fullscreen');
                 this.contentContainer = document.querySelector('#content');
                 this.menuList = document.querySelector('#menu');
                 this.mainTitle = document.querySelector('#title');
                 this.searchInput = document.querySelector('#search');
-                this.fullscreenButton = document.querySelector('#fullscreen');
                 this.infoBar = document.querySelector('#info');
                 this.canvas = document.querySelector('#cnv');
                 this.mask = document.querySelector('#mask');
@@ -128,6 +130,12 @@ var app = {
                 document.addEventListener('keyup', function(e){
                     // console.log(e.key);
                     switch (e.key) {
+                        case 'f':
+                            app.UI.toggleFullscreen();
+                            break;
+                        case ' ':
+                            app.slider.slideshow.toggle();
+                            break;
 
                         case 'ArrowRight':
                             app.slider.next();
@@ -213,38 +221,23 @@ var app = {
                 }
 
                 this.controllsContainer.onclick = function(e){
+                    console.log(e.target);
+                    if(e.target.id === 'title'){
+                        app.UI.toggleMenu();
+                        return;
+                    }
                     if(e.target.closest('#search')) return;
                     if(e.target.closest('.category')){
                         app.UI.hideMenu();
                         app.slider.setCategory(e.target.closest('.category'));
-                        return;
                     }
-                    if(e.target.closest('#fullscreen')){
-                        if(app.UI.state.fullscreenMode){
-                            app.UI.closeFullscreen();
-                            fullscreen.setAttribute('src', '/img/full-screen-icon.png?t');
-                            app.UI.state.fullscreenMode = false;
-                        } else {
-                            app.UI.openFullscreen();
-                            fullscreen.setAttribute('src', '/img/full-screen-icon.png?t');
-                            app.UI.state.fullscreenMode = true;
-                        }
-                        return;
-                    }
-                    if(e.target.closest('#slideshow')){
-                        var button = e.target;
-                        if(button.dataset.mode === 'off'){
-                            button.setAttribute('src', '/img/pause-icon.png');
-                            button.dataset.mode = 'on';
-                            app.slider.slideshow.start();
-                        } else {
-                            button.setAttribute('src', '/img/play-icon.png');
-                            button.dataset.mode = 'off';
-                            app.slider.slideshow.stop();
-                        }
-                        return;
-                    }
-                    app.UI.toggleMenu();
+
+                }
+                this.fullscreenButton.onclick = function(e){
+                    app.UI.toggleFullscreen();
+                }
+                this.slideshowButton.onclick = function(e){
+                    app.slider.slideshow.toggle();
                 }
             }
         },
@@ -434,6 +427,15 @@ var app = {
             this.DOM.controllsContainer.classList.toggle('hidden');
             this.DOM.info.classList.toggle('hidden');
         },
+        toggleFullscreen : function(){
+
+            if(this.state.fullscreenMode){
+                this.closeFullscreen();
+            } else {
+                app.UI.openFullscreen();
+            }
+
+        },
         openFullscreen : function(){
             if (document.body.requestFullscreen) {
                 document.body.requestFullscreen({ navigationUI: 'hide' });
@@ -442,6 +444,8 @@ var app = {
             } else if (content.msRequestFullscreen) { /* IE11 */
                 document.body.msRequestFullscreen({ navigationUI: 'hide' });
             }
+            this.DOM.fullscreenButton.setAttribute('src', '/img/full-screen-icon.png?t');
+            this.state.fullscreenMode = true;
         },
         closeFullscreen : function(){
             if (document.exitFullscreen) {
@@ -451,6 +455,8 @@ var app = {
             } else if (document.msExitFullscreen) { /* IE11 */
                 document.msExitFullscreen();
             }
+            this.DOM.fullscreenButton.setAttribute('src', '/img/full-screen-icon.png?t');
+            this.state.fullscreenMode = false;
         }
     },
     slider : {
@@ -508,11 +514,11 @@ var app = {
             //     // })
             // } else {
             sendRequest('/ajax',{estimate : 2, post : this.currentPic.name}, function(answ){
-                showInfo(answ.message.message);
+                showInfo(answ);
                 if(answ.success){
                     slider.currentPic.fav = true;
                 } else {
-                    alert('Какие лайки, тебе 14.');
+                    alert('unable to estimate');
                 }
             })
             // }
@@ -629,14 +635,26 @@ var app = {
         slideshow : {
             interval : null,
             step : 6000,
+            toggle : function(){
+                if(this.interval){
+                    this.stop();
+                } else {
+                    this.start();
+                }
+            },
             start : function(){
+                app.UI.DOM.slideshowButton.setAttribute('src', '/img/pause-icon.png');
+                // app.UI.DOM.slideshowButton.dataset.mode = 'on';
                 this.interval = setInterval(function(){
                     slider.next();
                 }, this.step);
             },
             stop : function(){
                 if(!this.interval) return;
+                app.UI.DOM.slideshowButton.setAttribute('src', '/img/play-icon.png');
+                // app.UI.DOM.slideshowButton.dataset.mode = 'off';
                 clearInterval(this.interval);
+                this.interval = null;
             }
         }
     },
@@ -795,6 +813,6 @@ function sendGet(url, callback){
 }
 var $infoTimeout = null;
 function showInfo(message){
-
+    console.log(message);
 
 }
