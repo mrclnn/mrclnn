@@ -34,16 +34,15 @@ window.onload = function(){
                 item.classList.remove('hidden');
             }
         }
+        if(searchWord.length < 4) return;
         sendRequest('/ajax', {search : searchWord}, function(answ){
             var catsFromRemote = '';
             if(answ.length > 0){
                 catsFromRemote += '<li class="info">uploaded from remote:</li>'
                 answ.forEach(function(item){
                     var tag = item.value;
-                    if(!categories[tag]){
-                        var count = item.label.replaceAll(/\D/g, '');
-                        catsFromRemote += '<li class="category"><span class="category-name">'+tag+'</span><span class="category-count">'+count+'</span></li>';
-                    }
+                    var count = item.label.replaceAll(/\D/g, '');
+                    catsFromRemote += '<li class="category"><span class="category-name">'+tag+'</span><span class="category-count">'+count+'</span></li>';
                 });
 
             }

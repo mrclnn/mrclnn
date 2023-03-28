@@ -21,6 +21,7 @@ use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
+use App\ParserAggregator;
 use Psr\Log\LoggerAwareTrait;
 use simplehtmldom\HtmlWeb;
 use Throwable;
@@ -439,10 +440,9 @@ OFFSET ?
 
     private function searchQuery() : array
     {
-        $url = 'test/autocomplete.php?q=' . $this->request['search'];
-        $doc = new HtmlWeb();
-        $json = $doc->load($url);
-        $this->logger->info($json);
+        $parser = ParserAggregator::getParser('search');
+        // todo не безопасно
+        $json = $parser->parse([$this->request['search']])['page'];
         return json_decode($json, true);
     }
 
