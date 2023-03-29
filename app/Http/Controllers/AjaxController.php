@@ -396,32 +396,22 @@ OFFSET ?
 
     private function estimateQuery() : array
     {
-
-        $estimated_post = DB::select('SELECT status, tags_artist, original_uri FROM posts hp WHERE file_name = ?', [$this->request['post']]);
-        $info = '';
-        if(!empty($estimated_post)){
-            try{
-                $message = $this->insertRecordToHNA($estimated_post[0]->tags_artist, (int)$this->request['estimate']);
-            } catch(Throwable $e){
-                $info .= 'error insert record to hna occured: ' . $e->getMessage();
-            }
-            if((string)$estimated_post[0]->status !== (string)$this->request['estimate']){
-                $affected =
-                    DB::table('posts')
-                    ->where('file_name', $this->request['post'])
-                    ->update([
-                        'status' => $this->request['estimate'],
-                        'estimate_at' => $this->getTimeForDB()
-                    ]);
-                if($affected !== 1){
-                    throw new Exception('estimateQuery affected:' . $affected. ' post: '.$this->request['post']);
-                }
-                if(!$info) $info = 'success without author record.';
-                return ['success' => true, 'message' => $message, 'affected' => $affected, 'info' => $info];
-            }
-            return ['success' => true, 'message'=>'already estimated'];
+        $requestedPostFileName = (string)$this->request['post'];
+        $requestedPost = GalleryPostAggregator::getFromFileName($requestedPostFileName);
+        if(!$requestedPost){
+            return [
+                'success' => false,
+                'error' => "Not found post ($requestedPostFileName)"
+            ];
         }
-        throw new Exception('empty answer from select shown post');
+
+        $estimate = (int)$this->request['estimate'];
+
+        $success = $requestedPost->estimate($estimate);
+        return [
+            'success' => $success,
+            'message' => 'estimated successfully',
+        ];
     }
 
     private function insertRecordToHNA(string $tags_artist, int $estimate) : array
