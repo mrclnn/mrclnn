@@ -77,11 +77,13 @@ var app = {
             pic_fan_list : null,
             pic_char_list : null,
             slideshowButton : null,
+            progressBar : null,
             init : function(){
                 this.controllsContainer = document.querySelector('#controls');
                 this.slideshowButton = this.controllsContainer.querySelector('#slideshow');
                 this.fullscreenButton = this.controllsContainer.querySelector('#fullscreen');
                 this.contentContainer = document.querySelector('#content');
+                this.progressBar = document.querySelector('#progress-bar');
                 this.menuList = document.querySelector('#menu');
                 this.mainTitle = document.querySelector('#title');
                 this.searchInput = document.querySelector('#search');
@@ -139,7 +141,6 @@ var app = {
 
                         case 'ArrowRight':
                             app.slider.next();
-                            console.log(app.slider.currentPic.shown);
                             break;
                         case 'ArrowLeft':
                             app.slider.prev();
@@ -473,18 +474,18 @@ var app = {
             if(this.viewed.length === 0) return;
             console.log(this.viewed.length);
             sendRequest('/ajax',{shown : true, posts : this.viewed}, function(answ){
-                // console.log(answ);
-                showInfo(answ.message);
+                app.logger.info(answ.message);
             });
             this.viewed = [];
         },
         delete : function(callback){
             sendRequest('/ajax',{estimate : 0, post : this.currentPic.name}, function(answ){
-                showInfo(answ.message.message);
                 if(answ.success){
                     if(callback && typeof callback === 'function'){
                         callback();
                     }
+                    app.logger.info('deleted');
+                    app.slider.slideshow.refresh();
                     slider.pics.splice(slider.i, 1);
                     slider.max = slider.pics.length;
                     if(slider.i === slider.max) slider.i--;
@@ -498,38 +499,32 @@ var app = {
                     slider.currentPic.render();
                     slider.preload(5);
                 } else {
-                    alert('СУУУУУУУУКА НЕ УДОЛЯЕТСЯЯ!!');
+                    console.error(answ.message);
                 }
-            })
+            }.bind(this))
         },
         like : function(){
-            // if(this.currentPic.fav){
-            //     // sendRequest('/ajax',{estimate : 1, post : this.currentPic.name}, function(answ){
-            //     //     if(answ === 1){
-            //     //         slider.currentPic.fav = false;
-            //     //         like.classList.remove('like');
-            //     //     } else {
-            //     //         alert('Да я ебал серв лежит.');
-            //     //     }
-            //     // })
-            // } else {
+            if(this.currentPic.fav){
+                app.logger.info('Already estimated');
+                return;
+            }
             sendRequest('/ajax',{estimate : 2, post : this.currentPic.name}, function(answ){
-                showInfo(answ);
                 if(answ.success){
-                    slider.currentPic.fav = true;
+                    this.currentPic.fav = true;
+                    app.logger.info('estimated');
                 } else {
                     alert('unable to estimate');
                 }
-            })
+            }.bind(this))
             // }
         },
         next : function(){
             if(this.max === 0) return;
             if(this.i + 1 === this.max){
-                alert('Вы дошли до конца Internet...');
+                app.logger.info('last post');
+                return;
             }
-            // console.log('this.i = ' +this.i);
-            // console.log('this.max = ' +this.max);
+            app.slider.slideshow.refresh();
             this.currentPic = this.pics[++this.i < this.max ? this.i : --this.i];
             this.currentPic.render();
             this.setTitle();
@@ -540,6 +535,7 @@ var app = {
         },
         prev : function(){
             if(this.max === 0) return;
+            app.slider.slideshow.refresh();
             this.currentPic = this.pics[--this.i >= 0 ? this.i : ++this.i];
             this.currentPic.render();
             this.setTitle();
@@ -633,8 +629,14 @@ var app = {
 
         },
         slideshow : {
+            progressInterval : null,
             interval : null,
             step : 6000,
+            refresh : function(){
+                if(!this.interval) return;
+                clearInterval(this.interval);
+                this.setInterval();
+            },
             toggle : function(){
                 if(this.interval){
                     this.stop();
@@ -644,30 +646,62 @@ var app = {
             },
             start : function(){
                 app.UI.DOM.slideshowButton.setAttribute('src', '/img/pause-icon.png');
-                // app.UI.DOM.slideshowButton.dataset.mode = 'on';
-                this.interval = setInterval(function(){
-                    slider.next();
-                }, this.step);
+                app.UI.DOM.progressBar.style.width ='0';
+                app.UI.DOM.progressBar.classList.remove('hidden');
+                app.logger.info('slideshow starts');
+                this.setInterval();
             },
             stop : function(){
                 if(!this.interval) return;
                 app.UI.DOM.slideshowButton.setAttribute('src', '/img/play-icon.png');
-                // app.UI.DOM.slideshowButton.dataset.mode = 'off';
+                app.UI.DOM.progressBar.classList.add('hidden');
+                app.UI.DOM.progressBar.style.width ='0';
+                app.logger.info('slideshow stops');
                 clearInterval(this.interval);
+                clearInterval(this.progressInterval);
                 this.interval = null;
+            },
+
+            setInterval : function(){
+                this.progress();
+                this.interval = setInterval(function(){
+                    this.progress();
+                    slider.next();
+                }.bind(this), this.step);
+            },
+            progress : function(){
+                clearInterval(this.progressInterval);
+                let i = 0;
+                this.progressInterval = setInterval(function(){
+                    i = i > 100 ? 100 : i;
+                    app.UI.DOM.progressBar.style.width = ++i + '%';
+                }, this.step / 100)
             }
         }
     },
     logger : {
         displayTimeout : null,
-        displayInfo : function(message){
-            if(this.displayTimeout) clearTimeout(this.displayTimeout);
-            app.UI.DOM.infoBar.classList.remove('hidden');
-            app.UI.DOM.infoBar.innerHTML = message;
-            this.displayTimeout = setTimeout(function(){
-                app.UI.DOM.infoBar.classList.add('hidden');
-                app.UI.DOM.infoBar.innerHTML = '';
-            }, 3000);
+        info : function(message){
+            if((typeof message) !== "string"){
+                console.log(typeof message);
+                console.log(message);
+                return;
+            }
+            // if(this.displayTimeout) clearTimeout(this.displayTimeout);
+            let infoContainer = app.UI.DOM.infoBar;
+            infoContainer.classList.remove('hidden');
+
+            let msg = document.createElement('div');
+            msg.innerHTML = message;
+            infoContainer.appendChild(msg);
+
+            this.displayTimeout = setTimeout(function(msg){
+                msg.remove();
+                if(app.UI.DOM.infoBar.childNodes.length === 0){
+                    app.UI.DOM.infoBar.classList.add('hidden');
+                }
+            }, 3000, msg);
+
         }
     },
     data : {

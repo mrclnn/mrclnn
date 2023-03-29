@@ -58,7 +58,8 @@
         </ul>
     </div>
 </div>
-{{--<div id="info" class="hidden"></div>--}}
+<div id="info" class="hidden"></div>
+<div id="progress-bar" class="hidden"></div>
 <img src="/img/like.png" alt="" id="mask">
 </body>
 </html>
