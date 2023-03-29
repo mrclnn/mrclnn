@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 
 
 use App\GalleryCategoryAggregator;
-use App\GalleryCategoryModel;
 use App\GalleryPostAggregator;
 use App\GalleryTagAggregator;
 use App\Helper;
@@ -64,6 +63,7 @@ class AjaxController extends Controller
         if(isset($this->request['searchTag'])) return $this->searchTagQuery();
         if(isset($this->request['addCategory'])) return $this->addCategoryQuery();
         if(isset($this->request['deleteCategory'])) return $this->deleteCategoryQuery();
+        if(isset($this->request['updateCategory'])) return $this->updateCategoryQuery();
         if(isset($this->request['checkCategoryCount'])) return $this->checkCategoryCount();
         if(isset($this->request['estimate'])) return $this->estimateQuery();
         if(isset($this->request['search'])) return $this->searchQuery();
@@ -123,13 +123,32 @@ class AjaxController extends Controller
         ];
     }
 
-    private function deleteCategoryQuery()
+    private function deleteCategoryQuery(): array
     {
         $categoryID = (int)$this->request['categoryID'];
         $success = GalleryCategoryAggregator::deleteCategory($categoryID);
         return [
             'success' => $success
         ];
+    }
+    private function updateCategoryQuery(): array
+    {
+        $categoryID = (int)$this->request['categoryID'];
+        $category = GalleryCategoryAggregator::updateCategory($categoryID);
+        if($category){
+            return [
+                'success' => true,
+                'id' => $category->id,
+                'count' => $category->count,
+            ];
+        } else {
+            return [
+                'success' => false,
+                'error' => 'Not found category'
+            ];
+        }
+
+
     }
 
     private function notalone(){

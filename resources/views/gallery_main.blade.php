@@ -39,6 +39,8 @@
         @foreach($categories as $category)
             <div class="category" data-id="{{$category->id}}">
                 <span class="category-name">{{$category->name}}</span>
+                <span class="category-count">{{$category->count}}</span>
+                <input type="button" class="update-category" value="update category">
                 <input type="button" class="delete-category" value="delete category">
             </div>
         @endforeach

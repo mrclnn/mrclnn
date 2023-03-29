@@ -71,6 +71,9 @@ let addCategoryFrame = {
             if (e.target.classList.contains('delete-category')) {
                 this.deleteCategory(e.target.parentNode.dataset.id);
             }
+            if (e.target.classList.contains('update-category')) {
+                this.updateCategory(e.target.parentNode.dataset.id);
+            }
         }.bind(this));
 
         this.dom.clear.addEventListener('click', function () {
@@ -116,6 +119,21 @@ let addCategoryFrame = {
         sendRequest('/ajax', query, function (answer) {
             console.log(answer);
         })
+    },
+    updateCategory: function (categoryID) {
+        let query = {
+            updateCategory: true,
+            categoryID: categoryID
+        }
+        sendRequest('/ajax', query, function(answer){
+            if(answer.success){
+                let categoryDOM = this.dom.categoriesContainer.querySelector('.category[data-id="'+answer.id+'"] .category-count');
+                categoryDOM.innerHTML = answer.count;
+            } else {
+                console.error(answer.error);
+            }
+
+        }.bind(this))
     },
     updatePostsCount: function (count) {
         this.dom.postsCount.innerHTML = count;
