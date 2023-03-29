@@ -2,6 +2,9 @@
 
 namespace App;
 
+use DateTime;
+use DateTimeZone;
+use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -62,24 +65,21 @@ class GalleryPostModel extends Model
         return $this;
     }
 
-//    public function setTags(array $tags) : bool
-//    {
-//        //todo по идее можно брать список уже записанных сюда тегов, разбирать на массив, сравнивать два массива и добавлять недостающие.
-//        //т.е. не перезаписывать список тегов, а дополнять если какого-то нет
-//        $tagsList = implode(',', $tags);
-//        $query = <<<QUERY
-//update
-//posts
-//set tags = ?
-//where id = ?
-//QUERY;
-//        //todo нужно запилить проверку заполнен ли объект, что-то типа isValid потому что если не заполнен id то тут будет пиздец
-//        DB::select($query, [$tagsList, $this->id]);
-//        //todo тут должно возвращаться не только true доработать этот момент
-//        return true;
-//
-//    }
+    public function estimate(int $estimate): bool
+    {
+        if($this->statusId === $estimate) return true;
+        DB::select('update posts set status = ?, estimate_at = ? where id = ?', [$estimate, $this->getTimeForDB(), $this->id]);
+        //todo обработку ошибок
+        return true;
+    }
 
+    private function getTimeForDB() : string
+    {
+        //todo вынести этот метод куда-нибудь выше по абстракции
+        $date = new DateTime();
+        $date->setTimezone(new DateTimeZone('Europe/Minsk'));
+        return $date->format('Y.m.d H:i:s');
+    }
 
     // соответствие полей-свойств согласно таблице в бд
     // удалить пост

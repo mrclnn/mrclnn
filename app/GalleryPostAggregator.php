@@ -37,6 +37,15 @@ class GalleryPostAggregator
         return (int)(DB::select('select count(*) as count from posts where status != 0')[0]->count);
     }
 
+    public static function getFromFileName(string $fileName): ?GalleryPostModel
+    {
+        $query = <<<QUERY
+SELECT * FROM posts WHERE file_name = ?
+QUERY;
+        $postData = DB::select($query, [$fileName]);
+        return (new GalleryPostModel())->fillByDBData($postData[0]);
+    }
+
     public function getById(int $id): ?GalleryPostModel
     {
 
