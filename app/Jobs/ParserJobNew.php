@@ -48,7 +48,7 @@ class ParserJobNew implements ShouldQueue
         //todo нужно упорядочить аргумент передаваемый в parse(); по сути это просто список гет значений для URL парсера
         // соответственно нужно добавить поле "required" или типа того где указано каким должен быть аргумент
         // кто будет конструировать объект-аргумент?
-        $categoryParsingData = $categoryParser->parse([$this->config->pid, $this->config->category]);
+        $categoryParsingData = $categoryParser->parse([$this->config->pid, $this->config->category, $this->config->filter]);
 
         $this->config->processPagination($categoryParsingData['pagination']);
         $this->config->processContent($categoryParsingData['posts']);
