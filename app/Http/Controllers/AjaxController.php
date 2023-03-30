@@ -88,7 +88,7 @@ class AjaxController extends Controller
         $searchWord = (string)$this->request['searchTag'];
         $foundTags = GalleryTagAggregator::searchTag($searchWord);
         return [
-            'tags' => $foundTags
+            'tags' => array_filter($foundTags, function($tag){return !!$tag->enabled;})
         ];
     }
 

@@ -49,6 +49,7 @@ QUERY;
     public static function checkExistence(array $remoteIdList): array
     {
         $remoteId = implode(',', $remoteIdList);
+        if(empty($remoteId)) return [];
         $existedPostID = DB::select("select post_id from posts where post_id in ($remoteId)");
         return array_map(function($post){
             return $post->post_id;
