@@ -9,6 +9,7 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use simplehtmldom\HtmlDocument;
 use simplehtmldom\HtmlNode;
+use Throwable;
 
 class GalleryImage
 {
@@ -57,11 +58,27 @@ class GalleryImage
     {
 
         $mime = substr($this->fileName, strripos($this->fileName, '.') + 1);
-        switch(true){
-            case $mime === 'jpg' || $mime === 'jpeg' : $img = imagecreatefromjpeg($this->remoteURI); break;
-            case $mime === 'png' : $img = imagecreatefrompng($this->remoteURI); break;
-            default: return false;
-        }
+        $successfullySaved = false;
+        //todo по непонятным причинам в некоторых случаях возникает ошибка
+        // imagecreatefrompng(): gd-png: libpng warning: iCCP: known incorrect sRGB profile
+        // которая исчезает если попытаться прогнать этот же код еще раз
+        $failedCount = 0;
+        $failedLimit = 5;
+        do{
+            try{
+                switch(true){
+                    case $mime === 'jpg' || $mime === 'jpeg' : $img = imagecreatefromjpeg($this->remoteURI); break;
+                    case $mime === 'png' : $img = imagecreatefrompng($this->remoteURI); break;
+                    default: return false;
+                }
+                $successfullySaved = true;
+            } catch (Throwable $e){
+                $failedCount++;
+                if($failedCount > $failedLimit) throw $e;
+                sleep(1);
+            }
+        } while (!$successfullySaved);
+
         if(!$img){
             throw new Exception("Unable 'create from mime' img from src $this->remoteURI");
         }
@@ -89,19 +106,22 @@ class GalleryImage
         return 100 - ((100 - $limitQuality) * $compress);
     }
     public function writeToDB(){
+        //todo проверка
+        preg_match('/\d+$/', $this->remoteURI, $postID);
         $params = [
             $this->width,
             $this->height,
             $this->size,
             $this->fileName,
             $this->remoteURI,
+            $postID[0],
             (new ImageHash())->createHashFromFile($this->localURI),
             $this->getTagsIds()
         ];
         $query = <<<QUERY
 insert into posts
 (width, height, size, category_id, file_name, original_uri, post_id, hash, tags)
-values (?,?,?,0,?,?,0,?,?);
+values (?,?,?,0,?,?,?,?,?);
 QUERY;
         DB::select($query, $params);
 

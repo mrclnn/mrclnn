@@ -26,15 +26,13 @@ class ParserJobNew implements ShouldQueue
     use LoggerAwareTrait;
 
 
-    private int $iteration;
     private ?ParserJobConfig $config;
 
-    public function __construct(?ParserJobConfig $config = null, int $iteration = 0)
+    public function __construct(?ParserJobConfig $config = null)
     {
         //todo разобраться с сериализацией функций в конструкторе
         // он не хочет здесь принимать сложные данные
 //        $this->setLogger();
-        $this->iteration = $iteration;
         // parserJobConfig должен быть правильным, иначе job не должна выполняться
         $this->config = $config;
     }
@@ -52,74 +50,47 @@ class ParserJobNew implements ShouldQueue
         // кто будет конструировать объект-аргумент?
         $categoryParsingData = $categoryParser->parse([$this->config->pid, $this->config->category]);
 
+        $this->config->processPagination($categoryParsingData['pagination']);
+        $this->config->processContent($categoryParsingData['posts']);
 
-        if(!isset($this->config->lastPage)){
-            //todo возможно нужно как-то различать ситуацию где в категории только одна страница и когда не удалось получить навигацию в принципе
-            if(empty($categoryParsingData['pagination'])){
-                $this->config->lastPage = 1;
-            } else {
-                $lastPageHref = $categoryParsingData['pagination'][0]->attr['href'];
-                preg_match('/\d+$/', $lastPageHref, $lastPage);
-                if(!isset($lastPage) or empty($lastPage[0])){
-                    $this->logger->error('Not found last page. End work');
-                    return;
-                }
 
-                $this->config->lastPage = (int)$lastPage[0] / 42;
-            }
-        }
+
 
         $lastPage = $this->config->lastPage;
         $currentPage = $this->config->iteration + 1;
         $category = $this->config->category;
         $this->logger->info("Start parsing $category, page $currentPage/$lastPage...");
+        $restCount = count($this->config->needleIds);
+        $existedCount = count($categoryParsingData['posts']) - $restCount;
+        $this->logger->info("$existedCount posts already parsed, $restCount to go...");
 
-        // как описать цикл именно по ключу posts ?
-        //todo реализовать это красивее
-        $alreadyExistCount = 0;
-        foreach($categoryParsingData['posts'] as $i => $postHTML){
-            $postURI = $postHTML->attr['href'];
-            if(!$postURI){
-                $this->logger->error('Skip post: URI not found');
-                continue;
-            }
-//            $this->logger->info("Parsing post: $postURI");
-            $idFound = preg_match('/\d+$/', $postURI, $id) === 1;
-            if(!$idFound){
-                $this->logger->error("Skip post: ID not found ($postURI)");
-                continue;
-            }
+        //todo success count добавить сюда + запись в логи после парсинга всех постов
+        foreach($this->config->needleIds as $i => $id){
             sleep(2);
             $postParser = ParserAggregator::getParser('post');
             if(!$postParser){
                 $this->logger->error("Received invalid Parser for request word 'post', check config. End work.");
                 return;
             }
-            $postParsingData = $postParser->parse([(int)$id[0]]);
+            $postParsingData = $postParser->parse([(int)$id]);
             $img = (new GalleryImage())->fillFromHtmlDocument($postParsingData);
             if(!$img){
-                $this->logger->error("Skip post: Received null GalleryImage instance, invalid postParsingData.");
+                $this->logger->error("Skip post $id: Received null GalleryImage instance, invalid postParsingData.");
                 continue;
             }
+            //todo эта проверка уже избыточна, потому что в конфиге мы готовим список id постов которых нет
             if($img->isExist()){
-                $this->logger->info("Skip post: Already exist ($postURI)");
-                $alreadyExistCount++;
-                $limit = 3;
-                if($alreadyExistCount > $limit){
-                    $this->logger->info("Found $limit existed posts in a row. skip current page...");
-                    break;
-                } else {
-                    continue;
-                }
-
+                $this->logger->info("Skip post $id: Already exist.");
+                continue;
             }
             try{
                 $success = $img->save();
                 if($success){
                     $img->writeToDB();
-                    $this->logger->info("Post $i parsed successfully: $postURI");
+                    $this->logger->info("post $id parsed successfully");
                 } else {
-                    $this->logger->info("Unable to parse $i : $postURI");
+                    //todo нужна дополнительная информация о неудаче
+                    $this->logger->info("Unable to parse $id");
                 }
 
             } catch (Throwable $e){

@@ -46,6 +46,15 @@ QUERY;
         return (new GalleryPostModel())->fillByDBData($postData[0]);
     }
 
+    public static function checkExistence(array $remoteIdList): array
+    {
+        $remoteId = implode(',', $remoteIdList);
+        $existedPostID = DB::select("select post_id from posts where post_id in ($remoteId)");
+        return array_map(function($post){
+            return $post->post_id;
+        }, $existedPostID);
+    }
+
     public function getById(int $id): ?GalleryPostModel
     {
 

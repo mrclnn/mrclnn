@@ -12,35 +12,54 @@ use simplehtmldom\HtmlWeb;
 
 class Parser
 {
-    private HtmlWeb $doc;
-    private Logger $logger;
 
     private int $id;
     private string $point;
     private string $domain;
     private array $uriTemplate;
-    private array $needleSelectors;
-//    private array $nextPageCondition;
+    private array $needleConfig = [];
 
 
     public function __construct()
     {
-        $this->doc = new HtmlWeb();
         $this->setLogger();
     }
 
 
-    public function fillFromData(object $data): Parser
+    public function fillFromData(object $data): ?Parser
     {
-        $this->id = isset($data->id) ? (int)$data->id : 0;
-        $this->point = isset($data->point) ? (string)$data->point : '';
-        $this->domain = isset($data->domain) ? (string)$data->domain : '';
-        $this->uriTemplate = isset($data->get_keys) ? $this->getParamsTemplate((string)$data->get_keys) : [];
-        $this->needleSelectors = isset($data->needle_selector) ? json_decode((string)$data->needle_selector, true) : [];
-//        $this->nextPageCondition = isset($data->next_page_condition) ? json_decode((string)$data->next_page_condition, true) : [];
+        //property_exists используется потому что null значения допускаются, а значит isset или empty не подходят
+        $this->id = property_exists($data, 'id') ? (int)$data->id : 0;
+        $this->point = property_exists($data, 'point') ? (string)$data->point : '';
+        $this->domain = property_exists($data, 'domain') ? (string)$data->domain : '';
+        $this->uriTemplate = property_exists($data, 'get_keys') ? $this->getParamsTemplate((string)$data->get_keys) : [];
+
+        if(
+            property_exists($data, 'needle_selector') &&
+            property_exists($data, 'needle_attribute') &&
+            property_exists($data, 'needle_regex')
+        ){
+            //todo проверка на невозможность получить json;
+            $selectors = json_decode((string)$data->needle_selector, true) ?? [];
+            $attributes = json_decode((string)$data->needle_attribute, true) ?? [];
+            $regex = json_decode((string)$data->needle_regex, true) ?? [];
+            $this->setConfig($selectors, $attributes, $regex);
+        } else {
+            //todo нужно избавиться от возвращения null
+            return null;
+        }
 
         return $this;
 
+    }
+
+    private function setConfig(array $selectors, array $attributes, array $regex): void
+    {
+        foreach($selectors as $point => $selector){
+            $this->needleConfig[$point]['selector'] = $selector;
+            $this->needleConfig[$point]['attribute'] = $attributes[$point] ?? null;
+            $this->needleConfig[$point]['regex'] = $regex[$point] ?? null;
+        }
     }
 
     public function parse(array $params): array
@@ -48,15 +67,25 @@ class Parser
         //todo нужно проверять передаваемые параметры
         $url = $this->getURL($this->getParams($params));
         $page = (new HtmlDocument())->load($this->safe_parse($url));
-//        $page = $this->doc->load($url);
         $result = [];
-        if(empty($this->needleSelectors)){
+        if(empty($this->needleConfig)){
             $result['page'] = $page;
         } else {
-            foreach($this->needleSelectors as $point => $selector){
-                //todo проверка
-//                echo "selector : $selector<br>point : $point<br><br><br>";
-                $result[$point] = $page->find($selector);
+            foreach($this->needleConfig as $point => $config){
+                //todo обработку ошибок сюда
+                $selectors = $page->find($config['selector']);
+                if(!empty($config['attribute'])){
+                    $attributes = array_map(function($selector) use ($config){
+                        return $selector->attr[$config['attribute']];
+                    }, $selectors);
+                    if(!empty($config['regex'])){
+                        $needleParts = array_map(function($attribute) use ($config){
+                            preg_match($config['regex'], $attribute, $needle);
+                            return $needle[0] ?? null;
+                        }, $attributes);
+                    }
+                }
+                $result[$point] = $needleParts ?? $attributes ?? $selectors;
             }
         }
         return $result;
