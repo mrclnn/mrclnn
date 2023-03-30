@@ -28,11 +28,7 @@ QUERY;
 from tags
 where id in ($idList)";
         $tagsInfo = DB::select($query, [$idList]);
-        $tags = [];
-        foreach($tagsInfo as $tagInfo){
-            $tags[] = (new GalleryTagModel())->fillFromData($tagInfo);
-        }
-        return $tags;
+        return self::getTags($tagsInfo);
 
     }
 
@@ -88,5 +84,17 @@ QUERY;
         }
 
         return array_merge($newTagsIDs, array_map(function($tag){return $tag->id;}, $existedTags));
+    }
+
+    public static function getDisabledTags(): array
+    {
+        $disabledTagsInfo = DB::select("select * from tags where enabled = 0");
+        return self::getTags($disabledTagsInfo);
+    }
+    private static function getTags(array $tagsInfo): array
+    {
+        return array_map(function($tagInfo){
+            return (new GalleryTagModel())->fillFromData($tagInfo);
+        }, $tagsInfo);
     }
 }
