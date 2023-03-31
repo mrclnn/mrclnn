@@ -147,7 +147,7 @@ let addCategoryFrame = {
             deleteCategory: true,
             categoryID: categoryID
         }
-        sendRequest('/ajax', query, function (answer) {
+        app.sendRequest('/ajax', query, function (answer) {
             console.log(answer);
         })
     },
@@ -156,9 +156,9 @@ let addCategoryFrame = {
             updateCategory: true,
             categoryID: categoryID
         }
-        sendRequest('/ajax', query, function(answer){
+        app.sendRequest('/ajax', query, function(answer){
             if(answer.success){
-                let categoryDOM = this.dom.categoriesContainer.querySelector('.category[data-id="'+answer.id+'"] .category-count');
+                let categoryDOM = this.dom.categoriesFrame.querySelector('.category[data-id="'+answer.id+'"] .category-count');
                 categoryDOM.innerHTML = answer.count;
             } else {
                 console.error(answer.error);
