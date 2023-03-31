@@ -1,14 +1,39 @@
 window.addEventListener('load', function () {
-
     app.run();
-    addCategoryFrame.init();
-
 });
 
 let app = {
     run: function () {
         console.log('application is running now');
-    }
+        addCategoryFrame.init();
+        tagsConfigFrame.init();
+    },
+    sendRequest : function(url, query, callback){
+        query._token = $('meta[name="csrf-token"]').attr('content');
+
+        $.ajax({
+            type: 'POST',
+            url: url,
+            data: query,
+            // processData : false,
+            dataType: 'JSON',
+            success: function (data) {
+                // console.log('success ajax lol');
+                callback(data);
+            },
+            error: function (err) {
+                // console.log('error ajax lol');
+                callback(err.responseText);
+            }
+        })
+    },
+    collectionToArray: function(collection) {
+        if (collection instanceof HTMLCollection) {
+            return [].slice.call(collection);
+        } else {
+            return false
+        }
+    },
 }
 let addCategoryFrame = {
     currentFilter : null,
@@ -279,30 +304,39 @@ let addCategoryFrame = {
     }
 }
 
-function collectionToArray(collection) {
-    if (collection instanceof HTMLCollection) {
-        return [].slice.call(collection);
-    } else {
-        return false
-    }
-}
+let tagsConfigFrame = {
+    dom : {
+        root : null,
 
-function sendRequest(url, query, callback) {
-    query._token = $('meta[name="csrf-token"]').attr('content');
+        searchTagInput : null,
+        selectedTagsFrame : null,
+        selectedAliasFrame : null,
+        searchAliasInput : null,
 
-    $.ajax({
-        type: 'POST',
-        url: url,
-        data: query,
-        // processData : false,
-        dataType: 'JSON',
-        success: function (data) {
-            // console.log('success ajax lol');
-            callback(data);
+        initDOM : function(){
+            this.root = document.querySelector('#tags-config')
+
+            this.searchTagInput = this.root.querySelector('#search-tag');
+            this.selectedTagsFrame = this.root.querySelector('#selected-tags');
+            this.selectedAliasFrame = this.root.querySelector('#tag-alias');
+            this.searchAliasInput = this.root.querySelector('#search-alias');
+
+            this.initEvents();
         },
-        error: function (err) {
-            // console.log('error ajax lol');
-            callback(err.responseText);
+        initEvents : function(){
+            this.searchTagInput.addEventListener('input', function(e){
+                tagsConfigFrame.searchTag(e.target.value);
+            })
         }
-    });
+    },
+    init : function(){
+
+        this.dom.initDOM();
+
+
+    },
+
+    searchTag : function(tag){
+        console.log(tag);
+    }
 }
