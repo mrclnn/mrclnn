@@ -38,6 +38,10 @@ let app = {
 let addCategoryFrame = {
     currentFilter : null,
     dom: {
+        addCategoryFrame: null,
+        frameTitle: null,
+        categoriesFrame: null,
+
         addButton: null,
         nameInput: null,
         matchedTags: null,
@@ -52,7 +56,6 @@ let addCategoryFrame = {
 
         clear: null,
         postsCount: null,
-        categoriesContainer: null,
 
         createMatchedTag: function (tagData) {
             let tag = document.createElement('li');
