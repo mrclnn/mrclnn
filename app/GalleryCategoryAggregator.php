@@ -27,19 +27,6 @@ QUERY;
         return self::$enabledCategories;
     }
 
-    public static function getFromId(int $id): ?GalleryCategoryModel
-    {
-        $query = <<<QUERY
-select *
-from categories
-where id = ?
-QUERY;
-        $categoryData = DB::select($query, [$id]);
-        if (empty($categoryData)) return null;
-        return (new GalleryCategoryModel())->fillFromDBData($categoryData[0]);
-
-    }
-
     public static function getFromName(string $name): ?GalleryCategoryModel
     {
         $query = <<<QUERY
@@ -54,54 +41,6 @@ QUERY;
 
     }
 
-    public static function addCategory(string $categoryName, array $tags, int $count = 0): bool
-    {
-        $query = <<<QUERY
-insert into categories
-    (
-     name,
-     dir_name,
-     tag,
-     tag_alias,
-     enabled,
-     count,
-     extend_tags,
-     exclude_tags,
-     include_tags
-    )
-values
-    (
-     ?,
-     'dir_name',
-     'tag',
-     'tag_alias',
-     1,
-     ?,
-     ?,
-     ?,
-     ?
-    )
-QUERY;
-        $extendTags = $tags['extendTags'];
-        $excludeTags = $tags['excludeTags'];
-        $includeTags = $tags['includeTags'];
-        DB::select($query, [$categoryName, $count, $extendTags, $excludeTags, $includeTags]);
-        //todo дописать тут условие обработку ошибок
-        return true;
-
-    }
-
-    public static function deleteCategory(int $categoryID): bool
-    {
-        //todo нужно не удалять а заполнять графу deleted_at и deleted
-        $query = <<<QUERY
-delete from categories where id = ?
-QUERY;
-        DB::select($query, [$categoryID]);
-        //todo дописать тут условие обработку ошибок
-        return true;
-
-    }
 
     public static function checkAssociatedTagsCount(array $tags): int
     {
