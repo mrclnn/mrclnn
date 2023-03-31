@@ -73,6 +73,11 @@ class GalleryPostModel extends Model
         return true;
     }
 
+    public function disable(): bool
+    {
+        return $this->estimate(0);
+    }
+
     private function getTimeForDB() : string
     {
         //todo вынести этот метод куда-нибудь выше по абстракции

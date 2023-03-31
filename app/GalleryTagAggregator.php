@@ -20,9 +20,9 @@ QUERY;
 
     }
 
-    public static function getFromIDs(array $idList) : ?array
+    public static function getFromIDs(array $idList) : array
     {
-        if(empty($idList)) return null;
+        if(empty($idList)) return [];
         $idList = implode(',', $idList);
         $query = "select *
 from tags

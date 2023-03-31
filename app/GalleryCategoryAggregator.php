@@ -103,19 +103,6 @@ QUERY;
 
     }
 
-    public static function updateCategory(int $categoryID): ?GalleryCategoryModel
-    {
-        $category = self::getFromId($categoryID);
-        if(!$category) return null;
-        $category->reCount();
-        $query = <<<QUERY
-update categories set count = ? where id = ?
-QUERY;
-        //todo дописать проверку на успешность
-        DB::select($query, [$category->count, $categoryID]);
-        return $category;
-    }
-
     public static function checkAssociatedTagsCount(array $tags): int
     {
         $extendTags = $tags['extendTags'] ?? '';
@@ -125,16 +112,9 @@ QUERY;
         return self::getFakeCategory()->setTags($extendTags, $excludeTags, $includeTags)->reCount()->count;
     }
 
-    private static function getFakeCategory(): GalleryCategoryModel
+    public static function getFakeCategory(): GalleryCategoryModel
     {
-        $fakeCategoryData = (object)[
-            'id' => 0,
-            'name' => 'Fake temporary category',
-            'associatedTags' => [],
-            'enabled' => false,
-            'count' => 0,
-        ];
-        return (new GalleryCategoryModel())->fillFromDBData($fakeCategoryData);
+        return new GalleryCategoryModel();
     }
 
 

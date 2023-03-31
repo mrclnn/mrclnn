@@ -88,7 +88,7 @@ class AjaxController extends Controller
         $searchWord = (string)$this->request['searchTag'];
         $foundTags = GalleryTagAggregator::searchTag($searchWord);
         return [
-            'tags' => array_filter($foundTags, function($tag){return !!$tag->enabled;})
+            'tags' => array_values(array_filter($foundTags, function($tag){return !!$tag->enabled;}))
         ];
     }
 
@@ -134,21 +134,13 @@ class AjaxController extends Controller
     private function updateCategoryQuery(): array
     {
         $categoryID = (int)$this->request['categoryID'];
-        $category = GalleryCategoryAggregator::updateCategory($categoryID);
-        if($category){
-            return [
-                'success' => true,
-                'id' => $category->id,
-                'count' => $category->count,
-            ];
-        } else {
-            return [
-                'success' => false,
-                'error' => 'Not found category'
-            ];
-        }
-
-
+        $category = GalleryCategoryAggregator::getFromId($categoryID);
+        $category->update();
+        return [
+            'success' => true,
+            'id' => $category->id,
+            'count' => $category->count,
+        ];
     }
 
     private function notalone(){

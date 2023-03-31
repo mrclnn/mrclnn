@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\GalleryCategoryAggregator;
 use App\GalleryImage;
 use App\ParserAggregator;
 use Carbon\Carbon;
@@ -101,9 +102,9 @@ class ParserJobNew implements ShouldQueue
 
         $this->config->prepareNextIteration();
         if($this->config->isItLastIteration){
-            $this->logger->info("All $currentPage/$lastPage pages is parsed, end work.");
+            $this->lastIteration();
         } else {
-            $this->logger->info("Go to next iteration...");
+            $this->logger->info("$category ($currentPage/$lastPage) parsed, go to next iteration...");
             self::dispatch($this->config)->delay(Carbon::now()->addSeconds($this->config->delay));
         }
 
@@ -118,6 +119,29 @@ class ParserJobNew implements ShouldQueue
     {
         //todo написать метод
         // тут должны быть dispatch конструкции
+    }
+    private function firstIteration(){
+        //todo написать метод
+    }
+
+    private function lastIteration(){
+        //todo написать метод
+        $message = sprintf(
+            "All %s/%s for category %s pages is parsed.",
+            $this->config->iteration + 1,
+            $this->config->lastPage,
+            $this->config->category
+        );
+        $this->logger->info($message);
+        $this->logger->info('Start recount enabled categories...');
+        $enabledCategories = GalleryCategoryAggregator::getEnabledCategories();
+        foreach($enabledCategories as $category){
+            $oldValue = $category->count;
+            $category->update();
+            $newValue = $category->count;
+            $this->logger->info("Category $category->name updated: $oldValue->$newValue posts.");
+        }
+        $this->logger->info('End work');
     }
 
 

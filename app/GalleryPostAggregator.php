@@ -108,15 +108,34 @@ order by shown, ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1), rand()) as al
 # PLACE FOR LIMIT #
 # PLACE FOR OFFSET #
 QUERY;
-        $sql = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
-        $sql = preg_replace('/# PLACE FOR LIMIT #/', $limit, $sql);
-        $sql = preg_replace('/# PLACE FOR OFFSET #/', $offset, $sql);
+        $sql = str_replace('# PLACE FOR WHERE #', $filter, $query);
+        $sql = str_replace('# PLACE FOR LIMIT #', $limit, $sql);
+        $sql = str_replace('# PLACE FOR OFFSET #', $offset, $sql);
 
         $postsData = DB::select($sql, [self::$screen, self::$sizeDiffusionLimit]);
         return array_map(function ($postData) {
             return (new GalleryPostModel())->fillByDBData($postData);
         }, $postsData);
 
+    }
+
+    public static function disableAbandonedPosts(): int
+    {
+        $abandonedTags = GalleryTagAggregator::getDisabledTags();
+        $fakeCategory = GalleryCategoryAggregator::getFakeCategory();
+        $fakeCategory->extendTags = $abandonedTags;
+        $posts = self::getPosts($fakeCategory);
+//        $img = array_map(function($post){
+//            $path = '/img/' . $post->fileName;
+//            return "<img src='$path'>";
+//        }, $posts);
+//        echo implode('', $img);
+//        dd('');
+        $countOfDisabled = 0;
+        foreach($posts as $post){
+            if($post->disable() === true) $countOfDisabled++;
+        }
+        return $countOfDisabled;
     }
 
     private static function needResetShown(GalleryCategoryModel $category): ?bool
@@ -155,11 +174,12 @@ QUERY;
 
     private static function getCategoryFilters(GalleryCategoryModel $category): string
     {
-        if(!empty(self::$filterQuery)) return self::$filterQuery;
+        //todo если во время одной сессии работать с разными категориями то фильтры будут затираться, добавить фильтры по категориям
+//        if(!empty(self::$filterQuery)) return self::$filterQuery;
 
         if (!empty($category->extendTags)) {
-            $extendFilter = array_map(function ($tagID) {
-                return "concat(',', tags, ',') like '%,$tagID,%'";
+            $extendFilter = array_map(function ($tag) {
+                return "concat(',', tags, ',') like '%,$tag->id,%'";
             }, $category->extendTags);
             $extendFilter = implode(' OR ', $extendFilter);
             $extendFilter = "($extendFilter)";
@@ -170,8 +190,8 @@ QUERY;
 
         if (!empty($category->excludeTags)) {
 
-            $excludeFilter = array_map(function ($tagID) {
-                return "concat(',', tags, ',') not like '%,$tagID,%'";
+            $excludeFilter = array_map(function ($tag) {
+                return "concat(',', tags, ',') not like '%,$tag->id,%'";
             }, $category->excludeTags);
             $excludeFilter = implode(' AND ', $excludeFilter);
             $excludeFilter = "($excludeFilter)";
@@ -182,8 +202,8 @@ QUERY;
 
         if (!empty($category->includeTags)) {
 
-            $includeFilter = array_map(function ($tagID) {
-                return "concat(',', tags, ',') like '%,$tagID,%'";
+            $includeFilter = array_map(function ($tag) {
+                return "concat(',', tags, ',') like '%,$tag->id,%'";
             }, $category->includeTags);
             $includeFilter = implode(' AND ', $includeFilter);
             $includeFilter = "($includeFilter)";

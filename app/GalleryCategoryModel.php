@@ -2,26 +2,24 @@
 
 namespace App;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
-class GalleryCategoryModel extends Model
+class GalleryCategoryModel
 {
+    public int $id = 0;
+    public string $name = '';
+    public bool $enabled = false;
+    public int $count = 0;
 
-    public int $id;
-    public string $name;
-    public bool $enabled;
-    public int $count;
-
-    public array $associatedTags;
-    public array $excludeTags;
-    public array $extendTags;
-    public array $includeTags;
+    public array $excludeTags = [];
+    public array $extendTags = [];
+    public array $includeTags = [];
 
     public function fillFromDBData(object $data): GalleryCategoryModel
     {
-        $this->id = isset($data->id) ? (int)$data->id : null;
-        $this->name = isset($data->name) ? (string)$data->name : null;
-        $this->enabled = isset($data->enabled) ? (bool)$data->enabled : null;
+        $this->id = isset($data->id) ? (int)$data->id : 0;
+        $this->name = isset($data->name) ? (string)$data->name : '';
+        $this->enabled = isset($data->enabled) && (bool)$data->enabled;
         $this->count = isset($data->count) ? (int)$data->count : 0;
 
         $extendTags = isset($data->extend_tags) ? (string)$data->extend_tags : '';
@@ -29,8 +27,6 @@ class GalleryCategoryModel extends Model
         $includeTags = isset($data->include_tags) ? (string)$data->include_tags : '';
 
         $this->setTags($extendTags, $excludeTags, $includeTags);
-//        $associatedTags = isset($data->associated_tags) ? (string)$data->associated_tags : '';
-//        $this->setAssociatedTags($associatedTags);
 
         return $this;
 
@@ -48,18 +44,15 @@ class GalleryCategoryModel extends Model
         return $this;
     }
 
-    public function setAssociatedTags(string $associatedTags): GalleryCategoryModel
-    {
-        // todo проверка на правильность строки, должна быть строка состоящая исключительно из цифр и запятых
-        $this->associatedTags = empty($associatedTags) ? [] : explode(',', $associatedTags);
-        return $this;
-    }
-
     public function setTags(string $extendTags, string $excludeTags, string $includeTags): GalleryCategoryModel
     {
-        $this->extendTags = $this->isValidString($extendTags) ? explode(',', $extendTags) : [];
-        $this->excludeTags = $this->isValidString($excludeTags) ? explode(',', $excludeTags) : [];
-        $this->includeTags = $this->isValidString($includeTags) ? explode(',', $includeTags) : [];
+        $extendTags = $this->isValidString($extendTags) ? explode(',', $extendTags) : [];
+        $excludeTags = $this->isValidString($excludeTags) ? explode(',', $excludeTags) : [];
+        $includeTags = $this->isValidString($includeTags) ? explode(',', $includeTags) : [];
+
+        $this->extendTags = GalleryTagAggregator::getFromIDs($extendTags);
+        $this->excludeTags = GalleryTagAggregator::getFromIDs($excludeTags);
+        $this->includeTags = GalleryTagAggregator::getFromIDs($includeTags);
 
         return $this;
     }
@@ -67,6 +60,21 @@ class GalleryCategoryModel extends Model
     private function isValidString(string $string): bool
     {
         return preg_match('/^[\d,]+$/', trim($string)) === 1;
+    }
+
+    public function isValid(){
+        //todo здесь проверка целостности объекта, например tags свойства должны быть массивами содержащими TagModel и ничто иное и тд
+    }
+
+    public function update(): GalleryCategoryModel
+    {
+        $this->reCount();
+        $query = <<<QUERY
+update categories set count = ? where id = ?
+QUERY;
+        //todo дописать проверку на успешность
+        DB::select($query, [$this->count, $this->id]);
+        return $this;
     }
 
 
