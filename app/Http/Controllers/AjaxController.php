@@ -110,6 +110,22 @@ class AjaxController extends Controller
             'success' => true
         ];
     }
+    private function updateCategoryQuery(): array
+    {
+        $category = new GalleryCategoryModel();
+        $category->id = (int)$this->request['id'];
+        $category->name = (string)$this->request['name'];
+        $category->setTags(
+            (string)$this->request['extendTags'],
+            (string)$this->request['excludeTags'],
+            (string)$this->request['includeTags']
+        );
+        $category->update();
+        //todo дописать проверку
+        return [
+            'success' => true
+        ];
+    }
 
     private function checkCategoryCount(): array
     {

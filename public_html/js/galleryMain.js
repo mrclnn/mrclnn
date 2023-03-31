@@ -105,6 +105,9 @@ let addCategoryFrame = {
             if (e.target.classList.contains('update-category')) {
                 this.recountCategory(e.target.parentNode.dataset.id);
             }
+            if (e.target.classList.contains('edit-category')) {
+                this.editCategory(e.target.parentNode);
+            }
         }.bind(this));
 
         this.dom.clear.addEventListener('click', function () {
@@ -112,7 +115,8 @@ let addCategoryFrame = {
         }.bind(this));
 
         this.dom.addButton.addEventListener('click', function () {
-            this.createCategory()
+            if(this.dom.addButton.dataset.target === 'create') this.createCategory();
+            if(this.dom.addButton.dataset.target === 'update') this.updateCategory();
         }.bind(this));
 
         this.dom.matchedTags.addEventListener('click', function (e) {
@@ -166,13 +170,86 @@ let addCategoryFrame = {
 
         }.bind(this))
     },
+    updateCategory: function () {
+        if (!this.checkCategory()) {
+            console.log('category not filled, or posts count is 0. return');
+            return;
+        }
+        if (!this.dom.addButton.dataset.id){
+            console.log('category id not filled, unable to update category');
+            return;
+        }
+        let associatedTags = this.getTags();
+        if (associatedTags === null) {
+            console.log('given invalid associatedTags. Unable to create category');
+            return;
+        }
+        let query = {
+            updateCategory: true,
+            id: this.dom.addButton.dataset.id,
+            name: this.dom.nameInput.value.trim(),
+            extendTags: associatedTags.extend.toString(),
+            excludeTags: associatedTags.exclude.toString(),
+            includeTags: associatedTags.include.toString(),
+        }
+        app.sendRequest('/ajax', query, function (answer) {
+            console.log(answer);
+        })
+    },
+    editCategory: function (category) {
+        let name = category.querySelector('.category-name').innerHTML
+        this.dom.nameInput.value = name;
+        let id = category.dataset.id;
+        let extendTags = category.querySelectorAll('.extend-tags li.selectedTag');
+        let excludeTags = category.querySelectorAll('.exclude-tags li.selectedTag');
+        let includeTags = category.querySelectorAll('.include-tags li.selectedTag');
+
+        this.dom.extendTags.innerHTML = '';
+        this.dom.excludeTags.innerHTML = '';
+        this.dom.includeTags.innerHTML = '';
+
+        extendTags.forEach(function(tag){
+            this.dom.extendTags.appendChild(tag.cloneNode(true))
+        }.bind(this))
+
+        excludeTags.forEach(function(tag){
+            this.dom.excludeTags.appendChild(tag.cloneNode(true))
+        }.bind(this))
+
+        includeTags.forEach(function(tag){
+            this.dom.includeTags.appendChild(tag.cloneNode(true))
+        }.bind(this))
+
+        this.dom.addButton.dataset.target = 'update';
+        this.dom.addButton.dataset.id = id;
+        this.dom.addButton.value = 'update category';
+        this.dom.clear.value = 'cancel';
+        this.dom.frameTitle.innerHTML = 'Edit <i>'+name+'</i>';
+
+
+    },
     updatePostsCount: function (count) {
         this.dom.postsCount.innerHTML = count;
     },
     clear: function () {
-        this.dom.extendTags.innerHTML = '';
-        this.dom.excludeTags.innerHTML = '';
-        this.dom.includeTags.innerHTML = '';
+        if(this.dom.addButton.dataset.target === 'create'){
+            this.dom.extendTags.innerHTML = '';
+            this.dom.excludeTags.innerHTML = '';
+            this.dom.includeTags.innerHTML = '';
+        }
+        if(this.dom.addButton.dataset.target === 'update'){
+            this.dom.extendTags.innerHTML = '';
+            this.dom.excludeTags.innerHTML = '';
+            this.dom.includeTags.innerHTML = '';
+            this.dom.nameInput.value = '';
+
+            this.dom.addButton.dataset.target = 'create';
+            this.dom.addButton.removeAttribute('data-id');
+            this.dom.addButton.value = 'add category';
+            this.dom.clear.value = 'clear';
+            this.dom.frameTitle.innerHTML = 'Add new category';
+
+        }
     },
     changeSelectedTagsList: function () {
         this.getCategoryCount();
