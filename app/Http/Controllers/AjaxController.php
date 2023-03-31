@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 
 use App\GalleryCategoryAggregator;
+use App\GalleryCategoryModel;
 use App\GalleryPostAggregator;
 use App\GalleryTagAggregator;
 use App\Helper;
@@ -63,6 +64,7 @@ class AjaxController extends Controller
         if(isset($this->request['searchTag'])) return $this->searchTagQuery();
         if(isset($this->request['addCategory'])) return $this->addCategoryQuery();
         if(isset($this->request['deleteCategory'])) return $this->deleteCategoryQuery();
+        if(isset($this->request['recountCategory'])) return $this->recountCategoryQuery();
         if(isset($this->request['updateCategory'])) return $this->updateCategoryQuery();
         if(isset($this->request['checkCategoryCount'])) return $this->checkCategoryCount();
         if(isset($this->request['estimate'])) return $this->estimateQuery();
@@ -131,10 +133,10 @@ class AjaxController extends Controller
             'success' => $success
         ];
     }
-    private function updateCategoryQuery(): array
+    private function recountCategoryQuery(): array
     {
-        $categoryID = (int)$this->request['categoryID'];
-        $category = GalleryCategoryAggregator::getFromId($categoryID);
+        //todo проверка параметра
+        $category = (new GalleryCategoryModel())->getFromID((int)$this->request['categoryID']);
         $category->update();
         return [
             'success' => true,

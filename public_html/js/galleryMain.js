@@ -103,7 +103,7 @@ let addCategoryFrame = {
                 this.deleteCategory(e.target.parentNode.dataset.id);
             }
             if (e.target.classList.contains('update-category')) {
-                this.updateCategory(e.target.parentNode.dataset.id);
+                this.recountCategory(e.target.parentNode.dataset.id);
             }
         }.bind(this));
 
@@ -151,9 +151,9 @@ let addCategoryFrame = {
             console.log(answer);
         })
     },
-    updateCategory: function (categoryID) {
+    recountCategory: function (categoryID) {
         let query = {
-            updateCategory: true,
+            recountCategory: true,
             categoryID: categoryID
         }
         app.sendRequest('/ajax', query, function(answer){
