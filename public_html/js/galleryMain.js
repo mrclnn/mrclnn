@@ -1,14 +1,39 @@
 window.addEventListener('load', function () {
-
     app.run();
-    addCategoryFrame.init();
-
 });
 
 let app = {
     run: function () {
         console.log('application is running now');
-    }
+        addCategoryFrame.init();
+        tagsConfigFrame.init();
+    },
+    sendRequest : function(url, query, callback){
+        query._token = $('meta[name="csrf-token"]').attr('content');
+
+        $.ajax({
+            type: 'POST',
+            url: url,
+            data: query,
+            // processData : false,
+            dataType: 'JSON',
+            success: function (data) {
+                // console.log('success ajax lol');
+                callback(data);
+            },
+            error: function (err) {
+                // console.log('error ajax lol');
+                callback(err.responseText);
+            }
+        })
+    },
+    collectionToArray: function(collection) {
+        if (collection instanceof HTMLCollection) {
+            return [].slice.call(collection);
+        } else {
+            return false
+        }
+    },
 }
 let addCategoryFrame = {
     currentFilter : null,
@@ -51,23 +76,26 @@ let addCategoryFrame = {
         }
     },
     init: function () {
-        this.dom.addButton = document.querySelector('#add-category');
-        this.dom.nameInput = document.querySelector('#add-category-name');
-        this.dom.matchedTags = document.querySelector('#matched-tags');
+        this.dom.addCategoryFrame = document.querySelector('#add-category-frame');
+        this.dom.frameTitle = this.dom.addCategoryFrame.querySelector('.main-frame-title');
 
-        this.dom.extendSearch = document.querySelector('#extend-search');
-        this.dom.excludeSearch = document.querySelector('#exclude-search');
-        this.dom.includeSearch = document.querySelector('#include-search');
+        this.dom.addButton = this.dom.addCategoryFrame.querySelector('#add-category');
+        this.dom.nameInput = this.dom.addCategoryFrame.querySelector('#add-category-name');
+        this.dom.matchedTags = this.dom.addCategoryFrame.querySelector('#matched-tags');
 
-        this.dom.extendTags = document.querySelector('#extended-tags');
-        this.dom.excludeTags = document.querySelector('#excluded-tags');
-        this.dom.includeTags = document.querySelector('#included-tags');
+        this.dom.extendSearch = this.dom.addCategoryFrame.querySelector('#extend-search');
+        this.dom.excludeSearch = this.dom.addCategoryFrame.querySelector('#exclude-search');
+        this.dom.includeSearch = this.dom.addCategoryFrame.querySelector('#include-search');
 
-        this.dom.clear = document.querySelector('#clear');
-        this.dom.postsCount = document.querySelector('#posts-count');
-        this.dom.categoriesContainer = document.querySelector('#categories-container');
+        this.dom.extendTags = this.dom.addCategoryFrame.querySelector('#extended-tags');
+        this.dom.excludeTags = this.dom.addCategoryFrame.querySelector('#excluded-tags');
+        this.dom.includeTags = this.dom.addCategoryFrame.querySelector('#included-tags');
 
-        this.dom.categoriesContainer.addEventListener('click', function (e) {
+        this.dom.clear = this.dom.addCategoryFrame.querySelector('#clear');
+        this.dom.postsCount = this.dom.addCategoryFrame.querySelector('#posts-count');
+        this.dom.categoriesFrame = document.querySelector('#categories-container');
+
+        this.dom.categoriesFrame.addEventListener('click', function (e) {
             if (e.target.classList.contains('delete-category')) {
                 this.deleteCategory(e.target.parentNode.dataset.id);
             }
@@ -176,15 +204,13 @@ let addCategoryFrame = {
         this.dom.matchedTags.style.top = searchInputRect.bottom + 'px';
         this.dom.matchedTags.style.left = searchInputRect.left + 'px';
     },
-
     searchTag: function (searchWord) {
         this.dom.matchedTags.innerHTML = '';
         if (searchWord.length < 3) {
             return;
         }
         console.log('searching word: ' + searchWord + '...');
-        sendRequest('/ajax', {searchTag: searchWord}, function (answer) {
-            console.log(answer.tags);
+        app.sendRequest('/ajax', {searchTag: searchWord}, function (answer) {
             answer.tags.forEach(function (tag) {
                 this.dom.matchedTags.appendChild(this.dom.createMatchedTag(tag));
             }.bind(this))
@@ -200,19 +226,19 @@ let addCategoryFrame = {
         let excludeTagsIds = [];
         let includeTagsIds = [];
 
-        let extendTags = collectionToArray(this.dom.extendTags.children);
+        let extendTags = app.collectionToArray(this.dom.extendTags.children);
         if (extendTags === false) {
             console.log('given not HTMLCollection. Returning');
             return null;
         }
 
-        let excludeTags = collectionToArray(this.dom.excludeTags.children);
+        let excludeTags = app.collectionToArray(this.dom.excludeTags.children);
         if (excludeTags === false) {
             console.log('given not HTMLCollection. Returning');
             return null;
         }
 
-        let includeTags = collectionToArray(this.dom.includeTags.children);
+        let includeTags = app.collectionToArray(this.dom.includeTags.children);
         if (includeTags === false) {
             console.log('given not HTMLCollection. Returning');
             return null;
@@ -236,7 +262,6 @@ let addCategoryFrame = {
             include: includeTagsIds
         };
     },
-
     createCategory: function () {
         if (!this.checkCategory()) {
             console.log('category not filled, or posts count is 0. return');
@@ -255,12 +280,11 @@ let addCategoryFrame = {
             excludeTags: associatedTags.exclude.toString(),
             includeTags: associatedTags.include.toString(),
         }
-        sendRequest('/ajax', query, function (answer) {
+        app.sendRequest('/ajax', query, function (answer) {
             console.log(answer);
         })
 
     },
-
     getCategoryCount: function () {
         let associatedTags = this.getTags();
         if (associatedTags === null) {
@@ -273,36 +297,45 @@ let addCategoryFrame = {
             excludeTags: associatedTags.exclude.toString(),
             includeTags: associatedTags.include.toString(),
         }
-        sendRequest('/ajax', query, function (answer) {
+        app.sendRequest('/ajax', query, function (answer) {
             this.updatePostsCount(answer.count);
         }.bind(this))
     }
 }
 
-function collectionToArray(collection) {
-    if (collection instanceof HTMLCollection) {
-        return [].slice.call(collection);
-    } else {
-        return false
-    }
-}
+let tagsConfigFrame = {
+    dom : {
+        root : null,
 
-function sendRequest(url, query, callback) {
-    query._token = $('meta[name="csrf-token"]').attr('content');
+        searchTagInput : null,
+        selectedTagsFrame : null,
+        selectedAliasFrame : null,
+        searchAliasInput : null,
 
-    $.ajax({
-        type: 'POST',
-        url: url,
-        data: query,
-        // processData : false,
-        dataType: 'JSON',
-        success: function (data) {
-            // console.log('success ajax lol');
-            callback(data);
+        initDOM : function(){
+            this.root = document.querySelector('#tags-config')
+
+            this.searchTagInput = this.root.querySelector('#search-tag');
+            this.selectedTagsFrame = this.root.querySelector('#selected-tags');
+            this.selectedAliasFrame = this.root.querySelector('#tag-alias');
+            this.searchAliasInput = this.root.querySelector('#search-alias');
+
+            this.initEvents();
         },
-        error: function (err) {
-            // console.log('error ajax lol');
-            callback(err.responseText);
+        initEvents : function(){
+            this.searchTagInput.addEventListener('input', function(e){
+                tagsConfigFrame.searchTag(e.target.value);
+            })
         }
-    });
+    },
+    init : function(){
+
+        this.dom.initDOM();
+
+
+    },
+
+    searchTag : function(tag){
+        console.log(tag);
+    }
 }
