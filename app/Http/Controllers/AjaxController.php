@@ -96,15 +96,18 @@ class AjaxController extends Controller
 
     private function addCategoryQuery() : array
     {
-        $categoryName = (string)$this->request['name'];
-        $extendTags = (string)$this->request['extendTags'];
-        $excludeTags = (string)$this->request['excludeTags'];
-        $includeTags = (string)$this->request['includeTags'];
-        $tags = compact(['extendTags', 'excludeTags', 'includeTags']);
-        $count = (int)$this->request['count'];
-        $success = GalleryCategoryAggregator::addCategory($categoryName, $tags, $count);
+        $category = new GalleryCategoryModel();
+        $category->name = (string)$this->request['name'];
+        $category->setTags(
+            (string)$this->request['extendTags'],
+            (string)$this->request['excludeTags'],
+            (string)$this->request['includeTags']
+        );
+        $category->count = $count = (int)$this->request['count'];
+        $category->insert();
+        //todo дописать проверку
         return [
-            'success' => $success
+            'success' => true
         ];
     }
 
@@ -127,10 +130,11 @@ class AjaxController extends Controller
 
     private function deleteCategoryQuery(): array
     {
-        $categoryID = (int)$this->request['categoryID'];
-        $success = GalleryCategoryAggregator::deleteCategory($categoryID);
+        $category = (new GalleryCategoryModel())->getFromID((int)$this->request['categoryID']);
+        $category->delete();
+        //todo проверку
         return [
-            'success' => $success
+            'success' => true
         ];
     }
     private function recountCategoryQuery(): array
