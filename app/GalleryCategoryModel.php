@@ -8,11 +8,11 @@ class GalleryCategoryModel
 {
     public int $id = 0;
     public string $name = '';
-    public bool $enabled = false;
+    public bool $enabled = true;
     public int $count = 0;
 
-    public array $excludeTags = [];
     public array $extendTags = [];
+    public array $excludeTags = [];
     public array $includeTags = [];
 
     public function fillFromDBData(object $data): GalleryCategoryModel
@@ -30,6 +30,21 @@ class GalleryCategoryModel
 
         return $this;
 
+    }
+
+    public function getFromID(int $id): ?GalleryCategoryModel
+    {
+        //todo проверку на наличие в базе такого ID
+        $query = <<<QUERY
+select *
+from categories
+where id = ?
+QUERY;
+        $categoryData = DB::select($query, [$id]);
+        //todo возвращать пустой объект а не Null
+        if (empty($categoryData)) return null;
+        $this->fillFromDBData($categoryData[0]);
+        return $this;
     }
 
     public function reCount(): GalleryCategoryModel
@@ -57,6 +72,28 @@ class GalleryCategoryModel
         return $this;
     }
 
+    private function getExtendTags(): string
+    {
+        $extendTagsIds = array_map(function($tag){
+            return $tag->id;
+        }, $this->extendTags);
+        return implode(',', $extendTagsIds);
+    }
+    private function getExcludeTags(): string
+    {
+        $excludeTagsIds = array_map(function($tag){
+            return $tag->id;
+        }, $this->excludeTags);
+        return implode(',', $excludeTagsIds);
+    }
+    private function getIncludeTags(): string
+    {
+        $includeTagsIds = array_map(function($tag){
+            return $tag->id;
+        }, $this->includeTags);
+        return implode(',', $includeTagsIds);
+    }
+
     private function isValidString(string $string): bool
     {
         return preg_match('/^[\d,]+$/', trim($string)) === 1;
@@ -68,13 +105,87 @@ class GalleryCategoryModel
 
     public function update(): GalleryCategoryModel
     {
+        // обновляет в базе данных все поля исходя из данных которыми заполнен объект
         $this->reCount();
-        $query = <<<QUERY
-update categories set count = ? where id = ?
-QUERY;
-        //todo дописать проверку на успешность
-        DB::select($query, [$this->count, $this->id]);
+        $categoryFromDB = (new GalleryCategoryModel())->getFromID($this->id);
+        $changedProperties = $this->compare($categoryFromDB);
+        $needToUpdateProperties = $this->getPropertiesToDB($changedProperties);
+
+        if(empty($needToUpdateProperties)) return $this;
+        //todo проверка возвращаемого значения
+        DB::table('categories')
+            ->where('id', $this->id)
+            ->update($needToUpdateProperties);
         return $this;
+    }
+
+    public function insert(): GalleryCategoryModel
+    {
+        $insert = $this->getPropertiesToDB();
+        if(isset($insert['id'])) unset($insert['id']);
+        //todo проверка возвращаемого значения
+        DB::table('categories')
+            ->insert($insert);
+        return $this;
+    }
+    public function delete()
+    {
+        //todo проверку
+        DB::table('categories')
+            ->where('id', $this->id)
+            ->delete();
+    }
+
+    private function getPropertiesToDB(array $properties = []): array
+    {
+        $result = [];
+        $properties = !empty($properties) ? $properties : array_keys(get_object_vars($this));
+        foreach($properties as $property){
+            if(property_exists($this, $property)){
+                switch ($property){
+                    case 'extendTags':
+                        $result['extend_tags'] = $this->getExtendTags();
+                        break;
+                    case 'excludeTags':
+                        $result['exclude_tags'] = $this->getExcludeTags();
+                        break;
+                    case 'includeTags':
+                        $result['include_tags'] = $this->getIncludeTags();
+                        break;
+                    default:
+                        $result[$this->toSnakeCase($property)] = $this->$property;
+                }
+            }
+        }
+        return $result;
+    }
+    private function compare(GalleryCategoryModel $example): array
+    {
+        $diff = [];
+        //todo возможно тут стоит циклом пройтись просто через все свойства объекта
+        // однако в таком случае мы не знаем как сравнивать свойства,
+        // для сравнения массивов тегов мы используем функции приводящие их к виду строки перечисляющей id
+//        $propertyNameList = get_object_vars($this);
+//        foreach($propertyNameList as $propertyName){
+//            if(!property_exists($example, $propertyName)){
+//                $diff[] = $propertyName;
+//            } else if($this->$propertyName ) {
+//
+//            }
+//
+//        }
+        if($this->name !== $example->name) $diff[] = 'name';
+        if($this->count !== $example->count) $diff[] = 'count';
+        if($this->getExtendTags() !== $example->getExtendTags()) $diff[] = 'extendTags';
+        if($this->getExcludeTags() !== $example->getExcludeTags()) $diff[] = 'excludeTags';
+        if($this->getIncludeTags() !== $example->getIncludeTags()) $diff[] = 'includeTags';
+        //todo структура возвращаемого значения оставляет желать лучшего
+        return $diff;
+    }
+    private function toSnakeCase(string $name): string
+    {
+        //todo проверку на то какая строка получена. возможно это не camelCase
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $name));
     }
 
 
