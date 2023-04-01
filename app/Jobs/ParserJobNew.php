@@ -11,14 +11,11 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\DB;
 use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
-use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use simplehtmldom\HtmlWeb;
 use Throwable;
 
 class ParserJobNew implements ShouldQueue
@@ -85,10 +82,9 @@ class ParserJobNew implements ShouldQueue
                 continue;
             }
             try{
-                $success = $img->save();
+                $success = $img->save()->writeToDB();
                 if($success){
-                    $img->writeToDB();
-                    $this->logger->info("post $id parsed successfully");
+                    $this->logger->info("post $id parsed successfully.");
                 } else {
                     //todo нужна дополнительная информация о неудаче
                     $this->logger->info("Unable to parse $id");
@@ -98,7 +94,7 @@ class ParserJobNew implements ShouldQueue
                 $this->processError($e);
             }
 
-        };
+        }
 
         $this->config->prepareNextIteration();
         if($this->config->isItLastIteration){
@@ -110,25 +106,25 @@ class ParserJobNew implements ShouldQueue
 
     }
 
-    private function continueCondition(): bool
-    {
-        //todo написать метод
-        return true;
-    }
-    private function continue()
-    {
-        //todo написать метод
-        // тут должны быть dispatch конструкции
-    }
-    private function firstIteration(){
-        //todo написать метод
-    }
+//    private function continueCondition(): bool
+//    {
+//        //todo написать метод
+//        return true;
+//    }
+//    private function continue()
+//    {
+//        //todo написать метод
+//        // тут должны быть dispatch конструкции
+//    }
+//    private function firstIteration(){
+//        //todo написать метод
+//    }
 
     private function lastIteration(){
         //todo написать метод
         $message = sprintf(
             "All %s/%s for category %s pages is parsed.",
-            $this->config->iteration + 1,
+            $this->config->iteration,
             $this->config->lastPage,
             $this->config->category
         );
