@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\GalleryCategoryAggregator;
 use App\GalleryImage;
+use App\Models\Categories;
 use App\ParserAggregator;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -46,7 +47,11 @@ class ParserJobNew implements ShouldQueue
         //todo нужно упорядочить аргумент передаваемый в parse(); по сути это просто список гет значений для URL парсера
         // соответственно нужно добавить поле "required" или типа того где указано каким должен быть аргумент
         // кто будет конструировать объект-аргумент?
-        $categoryParsingData = $categoryParser->parse([$this->config->pid, $this->config->category, $this->config->filter]);
+        $categoryParsingData = $categoryParser->parse([
+            'pid' => $this->config->pid,
+            'tag' => $this->config->category,
+            'filter' => $this->config->filter
+        ]);
 
         $this->config->processPagination($categoryParsingData['pagination']);
         $this->config->processContent($categoryParsingData['posts']);
@@ -70,7 +75,7 @@ class ParserJobNew implements ShouldQueue
                 $this->logger->error("Received invalid Parser for request word 'post', check config. End work.");
                 return;
             }
-            $postParsingData = $postParser->parse([(int)$id]);
+            $postParsingData = $postParser->parse(['postId' => (int)$id]);
             $img = (new GalleryImage())->fillFromHtmlDocument($postParsingData);
             if(!$img){
                 $this->logger->error("Skip post $id: Received null GalleryImage instance, invalid postParsingData.");
@@ -130,10 +135,10 @@ class ParserJobNew implements ShouldQueue
         );
         $this->logger->info($message);
         $this->logger->info('Start recount enabled categories...');
-        $enabledCategories = GalleryCategoryAggregator::getEnabledCategories();
+        $enabledCategories = Categories::getEnabled();
         foreach($enabledCategories as $category){
             $oldValue = $category->count;
-            $category->update();
+            $category->reCount()->save();
             $newValue = $category->count;
             $this->logger->info("Category $category->name updated: $oldValue->$newValue posts.");
         }

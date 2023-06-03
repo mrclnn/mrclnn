@@ -3,6 +3,7 @@
 namespace App;
 
 use Exception;
+use InvalidArgumentException;
 use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
@@ -65,61 +66,99 @@ class Parser
     public function parse(array $params): array
     {
         //todo нужно проверять передаваемые параметры
-        $url = $this->getURL($this->getParams($params));
+        $url = $this->getURL($params);
         $page = (new HtmlDocument())->load($this->safe_parse($url));
         $result = [];
+//        dd($this->needleConfig);
         if(empty($this->needleConfig)){
             $result['page'] = $page;
         } else {
+            //todo это пиздец
             foreach($this->needleConfig as $point => $config){
                 //todo обработку ошибок сюда
                 $selectors = $page->find($config['selector']);
+                $attributes = null;
+                $needleParts = null;
                 if(!empty($config['attribute'])){
                     $attributes = array_map(function($selector) use ($config){
-                        return $selector->attr[$config['attribute']];
+                        $attrs = [];
+                        foreach($config['attribute'] as $i => $attribute){
+                            $key = null;
+                            $value = null;
+                            $attributeNameList = explode('|', $attribute);
+                            foreach ($attributeNameList as $attributeName){
+                                if($attributeName === 'innerText'){
+                                    $key = 'innerText';
+                                    $value = $selector->plaintext;
+                                } else {
+                                    if(!empty($selector->attr[$attributeName])){
+                                        $key = $attributeName;
+                                        $value = $selector->attr[$attributeName];
+                                    }
+                                }
+                            }
+                            if(!empty($config['regex']) && !empty($value)){
+                                $regex = $config['regex'][$i];
+                                $needle = null;
+                                if(strpos($regex, '!') === 0){
+                                    $regex = substr($regex, 1);
+                                    $needle = preg_replace($regex, '', $value);
+                                } else {
+                                    preg_match($regex, $value, $needle);
+                                }
+                            }
+                            $attrs[$key] = $needle ?? $value;
+                        }
+                        return $attrs;
                     }, $selectors);
-                    if(!empty($config['regex'])){
-                        $needleParts = array_map(function($attribute) use ($config){
-                            preg_match($config['regex'], $attribute, $needle);
-                            return $needle[0] ?? null;
-                        }, $attributes);
-                    }
                 }
-                $result[$point] = $needleParts ?? $attributes ?? $selectors;
+                $result[$point] = $attributes ?? $selectors;
             }
         }
         return $result;
 
     }
 
-    private function getURL(array $params): string
+    private function getUrL(array $params): string
     {
-        $params = http_build_query($params);
-        $params = urldecode($params);
-        return "$this->domain?$params";
-    }
-
-    private function getParams(array $params): array
-    {
-        //тут нужно проверить
-        $index = 0;
-        $verifiedParams = [];
+        $requiredParams = [];
         foreach($this->uriTemplate as $key => $value){
-            //todo обработка ошибок
-            preg_match('/&[a-z]+&/', $value, $type);
-            if(!empty($type)){
-                $type = str_replace('&', '', $type[0]);
-                if(gettype($params[$index]) === $type){
-                    $value = str_replace("&$type&", $params[$index], $value);;
-                    $index++;
-                } else {
-                    throw new Exception("Received query param are mistyped with template");
-                }
+            preg_match_all('/&[a-zA-Z:]+&/', $value, $expected);
+            if(empty($expected[0])) continue;
+            foreach($expected[0] as $param){
+//                dd($param);
+                $param = str_replace('&', '', $param);
+                $param = explode(':', $param);
+                $requiredParams[$param[0]] = $param[1];
             }
-            $verifiedParams[$key] = $value;
-
         }
-        return $verifiedParams;
+
+        // param quantity check
+        $missedParams = array_diff_key($requiredParams, $params);
+        if(!empty($missedParams)){
+            $missing = implode(', ', array_keys($missedParams));
+            throw new InvalidArgumentException("Received wrong number of uri params, missing: $missing");
+        }
+
+        // param types check
+        foreach($params as $key => $value){
+            if(gettype($value) !== $requiredParams[$key]){
+                $requiredType = $requiredParams[$key];
+                $receivedType = gettype($value);
+                throw new InvalidArgumentException("Parameter $key need to be $requiredType, $receivedType received.");
+            }
+        }
+
+        $filledParams = $this->uriTemplate;
+
+        foreach($this->uriTemplate as $keyParam => $value){
+            foreach($requiredParams as $key => $type){
+                $template = $filledParams[$keyParam];
+                $filledParams[$keyParam] = str_replace("&$key:$type&", $params[$key], $template);
+            }
+        }
+
+        return "$this->domain?" . urldecode(http_build_query($filledParams));
     }
 
     private function getParamsTemplate(string $paramsJSON): array

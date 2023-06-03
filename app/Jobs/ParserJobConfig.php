@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
-use App\GalleryPostAggregator;
+
 use App\GalleryTagAggregator;
-use Exception;
+use App\Models\Posts;
 use Illuminate\Support\Facades\DB;
 
 class ParserJobConfig
@@ -37,7 +37,7 @@ QUERY;
         $this->delay = (int)$configData[0]->delay;
         $disabledTags = GalleryTagAggregator::getDisabledTags();
         $filter = array_map(function($tag){return $tag->tag;}, $disabledTags);
-        $this->filter = implode('+-', $filter);
+        $this->filter = '+-' . implode('+-', $filter);
 
     }
 
@@ -50,13 +50,12 @@ QUERY;
     public function processPagination(array $pagination)
     {
         if(isset($this->lastPage)) return;
-        $this->lastPage = empty($pagination) ? 1 : ((int)$pagination[0] / 42) + 1;
+        $this->lastPage = empty($pagination) ? 1 : ((int)$pagination[0]['href'][0] / 42) + 1;
     }
     public function processContent(array $content)
     {
-        //$content -- это массив id постов
-        $idList = $content;
-        $existedIds = GalleryPostAggregator::checkExistence($idList);
+        $idList = array_map(function($post){return $post['href'][0];}, $content);
+        $existedIds = Posts::checkExistence($idList);
         $this->needleIds = array_diff($idList, $existedIds);
     }
 
