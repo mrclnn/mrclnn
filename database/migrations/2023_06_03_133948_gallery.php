@@ -87,8 +87,10 @@ class Gallery extends Migration
         if(!Schema::hasTable('posts_tags')){
             Schema::create('posts_tags', function (Blueprint $table) {
 
-                $table->integer('posts_id');
-                $table->integer('tags_id');
+                $table->integer('posts_id')->unsigned();
+                $table->integer('tags_id')->unsigned();
+
+                $table->primary(['posts_id', 'tags_id']);
 
                 $table->index(['posts_id', 'tags_id']);
 
