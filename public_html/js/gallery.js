@@ -11,11 +11,11 @@ window.onload = function(){
     let fromRemote = document.querySelector('#from-remote');
     fromRemote.onclick = function(e){
         // console.log(e.target);
-        tag = e.target.closest('.category').querySelector('.category-name').innerText;
+        tagName = e.target.closest('.category').querySelector('.category-name').innerText;
         // console.log(tag);
-        result = confirm('Load category ' + tag + '?');
+        result = confirm('Load category ' + tagName + '?');
         if(result){
-            sendRequest('/ajax', {load : tag}, function(answ){
+            sendRequest(AJAX_PATH, {action : 'load', tag : tagName}, function(answ){
                 console.log(answ);
             });
         }
@@ -35,7 +35,7 @@ window.onload = function(){
             }
         }
         if(searchWord.length < 4) return;
-        sendRequest('/ajax', {search : searchWord}, function(answ){
+        sendRequest(AJAX_PATH, {action : 'search', word : searchWord}, function(answ){
             var catsFromRemote = '';
             if(answ.length > 0){
                 catsFromRemote += '<li class="info">uploaded from remote:</li>'
@@ -56,7 +56,7 @@ window.onload = function(){
 
 }
 
-var app = {
+let app = {
     info : function(){
         this.slider.currentPic.printTags();
     },
@@ -111,8 +111,11 @@ var app = {
                     // console.log(slider.currentPic);
                     // console.log(e.target.tag);
                     if(e.target.classList.contains('pic-filter')){
-                        filter_key = e.target.parentNode.className.match(/pic-[a-z]+-list/g)[0].replaceAll('pic-','').replaceAll('-list', '');
-                        filter = filter_key + '_' + e.target.innerHTML;
+                        filter = e.target.innerHTML;
+
+                        // console.log(filter);
+                        // return;
+
                         slider.setCategory(filter);
                     }
                 })
@@ -222,7 +225,7 @@ var app = {
                 }
 
                 this.controllsContainer.onclick = function(e){
-                    console.log(e.target);
+                    // console.log(e.target);
                     if(e.target.id === 'title'){
                         app.UI.toggleMenu();
                         return;
@@ -472,14 +475,14 @@ var app = {
         categoryLoading : false,
         sendViewed : function(){
             if(this.viewed.length === 0) return;
-            console.log(this.viewed.length);
-            sendRequest('/ajax',{shown : true, posts : this.viewed}, function(answ){
-                app.logger.info(answ.message);
+            sendRequest(AJAX_PATH,{action : 'shown', posts : this.viewed}, function(answ){
+                // app.logger.info(answ.message);
             });
             this.viewed = [];
         },
         delete : function(callback){
-            sendRequest('/ajax',{estimate : 0, post : this.currentPic.name}, function(answ){
+            //todo hardcoded estimate status
+            sendRequest(AJAX_PATH,{action : 'estimate', status : 0, post : this.currentPic.id}, function(answ){
                 if(answ.success){
                     if(callback && typeof callback === 'function'){
                         callback();
@@ -508,7 +511,8 @@ var app = {
                 app.logger.info('Already estimated');
                 return;
             }
-            sendRequest('/ajax',{estimate : 2, post : this.currentPic.name}, function(answ){
+            //todo hardcoded estimate status
+            sendRequest(AJAX_PATH,{action : 'estimate', status : 2, post : this.currentPic.id}, function(answ){
                 if(answ.success){
                     this.currentPic.fav = true;
                     app.logger.info('estimated');
@@ -527,6 +531,7 @@ var app = {
             app.slider.slideshow.refresh();
             this.currentPic = this.pics[++this.i < this.max ? this.i : --this.i];
             this.currentPic.render();
+            if(this.currentPic.shown) alert('this pic already shown');
             this.setTitle();
             this.preload(5);
             if(this.i > this.pics.length - 10){
@@ -542,10 +547,11 @@ var app = {
             this.preload(5);
         },
         addLoadPics : function(){
-            sendRequest('/ajax',{get : category, screen : content.clientWidth/content.clientHeight, offset : this.pics.length}, function(answ){
+            sendRequest(AJAX_PATH,{action : 'get', category : slider.currentCat, screen : content.clientWidth/content.clientHeight, offset : this.pics.length}, function(answ){
                 app.slider.categoryLoading = false;
-                if(!!answ){
-                    answ.forEach(function(item){
+                console.log(answ);
+                if(!!answ.posts){
+                    answ.posts.forEach(function(item){
                         slider.pics.push(new Pic(item));
                     });
                     slider.max = slider.pics.length;
@@ -572,6 +578,8 @@ var app = {
                 this.i = 0;
                 this.pics[0].onload = this.pics[0].render;
                 this.pics[0].loadImg();
+                this.pics[0].fillInfo();
+                // console.log(this.pics[0]);
                 // this.pics[0].render();
                 this.currentPic = this.pics[this.i];
             }
@@ -591,27 +599,27 @@ var app = {
             if(this.categoryLoading) return;
             this.categoryLoading = true;
             if(typeof cat === 'string'){
-                category = cat;
+                categoryName = cat;
             } else {
-                category = cat.dataset.value;
+                categoryName = cat.dataset.value;
             }
             offset = additional ? this.pics.length : 0;
-            sendRequest('/ajax',{get : category, screen : (content.clientWidth/content.clientHeight).toFixed(1), offset : offset}, function(answ){
+            sendRequest(AJAX_PATH,{action : 'get', category : categoryName, screen : (content.clientWidth/content.clientHeight).toFixed(1), offset : offset}, function(answ){
                 app.slider.categoryLoading = false;
                 if(!!answ){
-                    if(answ.length === 0){
+                    if(answ.posts.length === 0){
 
                         alert('Empty category :(');
                         return;
                     }
-                    slider.setPics(answ, additional);
+                    slider.setPics(answ.posts, additional);
 
                     if(typeof cat !== 'string'){
-                        slider.currentCat = category;
+                        slider.currentCat = categoryName;
                         slider.categoryCount = cat.querySelector('.category_count').innerText;
                         slider.setTitle(cat.querySelector('.category-name').innerText);
                     } else {
-                        slider.categoryCount = answ[0].q;
+                        slider.categoryCount = answ.info.count;
                         slider.setTitle(cat);
                     }
                 } else {
@@ -709,10 +717,11 @@ var app = {
     }
 }
 
+const AJAX_PATH = '/ajax';
 
 class Pic {
     constructor(params){
-        // console.log(params);
+        this.id = params.id;
         this.name = params.file_name;
         this.q = params.q;
         this.tags_artist = params.tags.artist ?? [''];
@@ -763,10 +772,10 @@ class Pic {
 
 
         // app.UI.DOM.pic_info.innerHTML = '<p>'+this.artists+'</p><p>'+this.q+'</p>';
-        if(!slider.viewed.includes(this.name)){
-            slider.viewed.push(this.name);
+        if(!slider.viewed.includes(this.id)){
+            slider.viewed.push(this.id);
             // console.log(slider.viewed);
-            if(slider.viewed.length > 20){
+            if(slider.viewed.length > 5){
                 slider.sendViewed();
             }
         }
@@ -806,7 +815,7 @@ class Pic {
     }
 }
 
-var slider = app.slider;
+let slider = app.slider;
 
 function sendRequest(url, query, callback){
     query._token = $('meta[name="csrf-token"]').attr('content');
@@ -845,7 +854,7 @@ function sendGet(url, callback){
         }
     });
 }
-var $infoTimeout = null;
+let $infoTimeout = null;
 function showInfo(message){
     console.log(message);
 

@@ -295,6 +295,9 @@ body{
     padding: 6px;
     border-bottom: 1px solid #fff;
 }
+.filter-list li:hover{
+    cursor: pointer;
+}
 .filter-list li:last-child{
     border-bottom: none;
 }

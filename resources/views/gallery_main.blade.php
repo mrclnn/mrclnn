@@ -15,12 +15,15 @@
 
 </head>
 <body>
+<h1>{{gettype($categories)}}</h1>
 <h1>Tags config</h1>
 <div id="tags-config" class="main-frame">
     <input type="text" name="search-tag" id="search-tag" placeholder="search tag">
+    <ul id="matched-tags" class="selected-tags"></ul>
     <ul id="selected-tags"></ul>
     <span id="tag-alias"></span>
-    <input type="text" name="search-alias" id="search-alias">
+    <input type="text" name="search-alias" id="search-alias" placeholder="search alias">
+    <input type="button" id="create-alias" name="create-alias" value="create alias">
 </div>
 <h1>Categories config</h1>
 <div id="add-category-frame" class="main-frame">
