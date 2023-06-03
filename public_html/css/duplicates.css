@@ -1,0 +1,21 @@
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+}
+.duplicate{
+    opacity: .2;
+}
+#send-duplicates{
+    position: fixed;
+    right: 30px;
+    top: 30px;
+    padding: 20px;
+}
+.container h4:hover{
+    cursor: pointer
+}
+img{
+    /*pointer-events: none;*/
+}
