@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class GalleryPostModel extends Model
 {
     public int $id;
-    public int $categoryId;
+    public ?int $categoryId;
     public int $statusId;
     public string $fileName;
     public int $width;

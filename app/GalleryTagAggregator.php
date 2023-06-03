@@ -3,6 +3,7 @@
 namespace App;
 
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 class GalleryTagAggregator
 {
@@ -32,58 +33,27 @@ where id in ($idList)";
 
     }
 
-    public static function addTag(string $type, string $tag): int
+    public static function getFromName(string $name) : ?GalleryTagModel
     {
-        $query = <<<QUERY
-insert into tags (type, tag) values (?, ?)
-QUERY;
-        DB::select($query, [$type, $tag]);
-        $query = <<<QUERY
-select id from tags where type = ? and tag = ?
-QUERY;
-        return (int)(DB::select($query, [$type, $tag])[0]->id);
+        $dbData = DB::table('tags')
+            ->where('tag', '=', $name)
+            ->get()
+            ->toArray();
+        if(count($dbData) === 1){
+            return (new GalleryTagModel())->fillFromData($dbData[0]);
+        }
+        return null;
+//        throw new InvalidArgumentException("requested category $name not found");
     }
 
-    public static function checkTags(array $tags): array
+    public static function getAuthors() : array
     {
-        $filter = [];
-        $requestedTags = [];
-        foreach($tags as $type => $typedTags) {
-            foreach ($typedTags as $tag) {
-                $requestedTags[$tag] = $type;
-                $escapedTag = str_replace("'", "\'", $tag);
-                $filter[] = "(type = '$type' and tag = '$escapedTag')";
-
-            }
-        }
-
-        $filter = implode(' or ', $filter);
-        $query = <<<QUERY
-select
-    id, type, tag
-    from tags
-where TRUE
-# PLACE FOR WHERE #
-QUERY;
-        $query = str_replace('# PLACE FOR WHERE #', "and $filter", $query);
-        $existedTags = DB::select($query);
-
-        $existedCount = count($existedTags);
-        $requestedCount = count($tags, COUNT_RECURSIVE) - count($tags);
-
-        $newTagsIDs = [];
-        if($existedCount !== $requestedCount){
-            $foundedTags = array_map(function($tag){return $tag->tag;}, $existedTags);
-            $newTags = array_diff(array_keys($requestedTags), $foundedTags);
-
-//            dd(['new tags' => $newTags, 'founded' => $foundedTags, 'requested' => array_keys($requestedTags)]);
-
-            foreach($newTags as $tag){
-                $newTagsIDs[] = self::addTag($requestedTags[$tag], $tag);
-            }
-        }
-
-        return array_merge($newTagsIDs, array_map(function($tag){return $tag->id;}, $existedTags));
+        //todo тут проверки
+        return DB::table('tags')
+            ->where('type', '=', 'artist')
+            ->where('id', '!=', 52) // не выбираем stable_diffusion
+            ->get()
+            ->toArray();
     }
 
     public static function getDisabledTags(): array

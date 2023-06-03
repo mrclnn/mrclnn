@@ -2,6 +2,9 @@
 
 namespace App;
 
+use App\Models\Categories;
+use App\Models\Posts;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
@@ -10,11 +13,6 @@ use Monolog\Processor\PsrLogMessageProcessor;
 
 class GalleryPostAggregator
 {
-
-    // todo выполняя неоднократно сложный sql запрос для разных целей возможно лучше было бы
-    // todo записывать результат выборки в отдельную временную таблицу или что-то вроде того
-
-    // todo дублирование кода при конструировании sql запроса в нескольких методах, переписать используя laravel инструменты для построения запросов
 
     private static Logger $logger;
 
@@ -30,11 +28,11 @@ class GalleryPostAggregator
 
     private static int $offset = 0;
 
-    private static string $filterQuery = '';
+    private static bool $order = false;
 
     public static function countAll(): int
     {
-        return (int)(DB::select('select count(*) as count from posts where status != 0')[0]->count);
+        return Posts::whereNotIn('status', [0,9])->count();
     }
 
     public static function getFromFileName(string $fileName): ?GalleryPostModel
@@ -56,168 +54,152 @@ QUERY;
         }, $existedPostID);
     }
 
-    public function getById(int $id): ?GalleryPostModel
+    public static function setDuplicates($duplicates)
     {
-
-        $query = <<<QUERY
-select
-    id,
-    category_id,
-    status,
-    file_name,
-    width,
-    height,
-    shown,
-    size,
-    created_at,
-    original_uri,
-    post_id,
-    estimate_at,
-    hash,
-    tags
-from posts
-where id = ?
-QUERY;
-        $postData = DB::select($query, [$id]);
-        if (empty($postData)) return null;
-
-        return (new GalleryPostModel())->fillByDBData($postData[0]);
-
+        return DB::table('posts')
+            ->whereIn('id', $duplicates)
+            ->update(['status' => 9]);
     }
 
     public static function getPosts(GalleryCategoryModel $category, array $config = []): array
     {
-        //todo по идее тут тоже должен возвращаться массив объектов postModel
+        //todo нужно нормализовать получаемый config объект
         self::setConfig($config);
         self::$logger->info('Requested category: ', [$category->name]);
 
-        if(self::needResetShown($category)) self::resetShown($category);
+        $beg = microtime(true);
 
-        $filter = self::getCategoryFilters($category);
-        $limit = self::$defaultChunkSize > 0 ? "LIMIT " . self::$defaultChunkSize : '';
-        $offset = self::$offset > 0 ? "OFFSET " . self::$offset : '';
+        if(!empty($category->id) and self::$order = false){
+            $posts = (Categories::query()->find($category->id))->getPostsForSlider(40, self::$screen);
+            $res = array_map(function ($postData) {
+                return (new GalleryPostModel())->fillByDBData((object)$postData);
+            }, $posts->toArray());
+            self::$logger->info('Time: '.(microtime(true) - $beg).' sec');
+            return $res;
+        }
 
-        //todo возможно нужно конструировать еще и order
-        //todo Это все охуеть как не безопасно
-        $query = <<<QUERY
-select * from
-(select * from posts
-where status != 0
-# PLACE FOR WHERE #
-order by shown, ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1), rand()) as allPosts
-# PLACE FOR LIMIT #
-# PLACE FOR OFFSET #
-QUERY;
-        $sql = str_replace('# PLACE FOR WHERE #', $filter, $query);
-        $sql = str_replace('# PLACE FOR LIMIT #', $limit, $sql);
-        $sql = str_replace('# PLACE FOR OFFSET #', $offset, $sql);
+        // Это фильтры по умолчанию для отображения в слайдере.
+        // Например, лимит в N постов и показывать только shown = 0 и сортировать чтобы status = 2 был в конце.
+        // Однако может понадобиться взять все посты избегая этих фильтров
+//        $query = DB::table('posts')->where('shown', 0);
+        $query = self::setFilters($category, DB::table('posts'));
 
-        $postsData = DB::select($sql, [self::$screen, self::$sizeDiffusionLimit]);
+//        dd($query->toSql());
+        //todo возможно не стоит ресетить сразу. отдать сначала всю категорию и только потом ресетить
+        // в таком случае нужно выдавать исключительно те посты которых еще не было показано
+        if(self::needResetShown(clone $query)) self::resetShown(clone $query);
+
+        $query = self::setOrder($query);
+        $query = self::setLimits($category, $query);
+
+        $postsData = $query->get()->toArray();
         return array_map(function ($postData) {
             return (new GalleryPostModel())->fillByDBData($postData);
         }, $postsData);
 
     }
 
-    public static function disableAbandonedPosts(): int
+//    public static function disableAbandonedPosts(): int
+//    {
+//        $abandonedTags = GalleryTagAggregator::getDisabledTags();
+//        $fakeCategory = GalleryCategoryAggregator::getFakeCategory();
+//        $fakeCategory->extendTags = $abandonedTags;
+//        $posts = self::getPosts($fakeCategory);
+////        $img = array_map(function($post){
+////            $path = '/img/' . $post->fileName;
+////            return "<img src='$path'>";
+////        }, $posts);
+////        echo implode('', $img);
+////        dd('');
+//        $countOfDisabled = 0;
+//        foreach($posts as $post){
+//            if($post->disable() === true) $countOfDisabled++;
+//        }
+//        return $countOfDisabled;
+//    }
+
+    private static function needResetShown(Builder $query): ?bool
     {
-        $abandonedTags = GalleryTagAggregator::getDisabledTags();
-        $fakeCategory = GalleryCategoryAggregator::getFakeCategory();
-        $fakeCategory->extendTags = $abandonedTags;
-        $posts = self::getPosts($fakeCategory);
-//        $img = array_map(function($post){
-//            $path = '/img/' . $post->fileName;
-//            return "<img src='$path'>";
-//        }, $posts);
-//        echo implode('', $img);
-//        dd('');
-        $countOfDisabled = 0;
-        foreach($posts as $post){
-            if($post->disable() === true) $countOfDisabled++;
-        }
-        return $countOfDisabled;
+        //todo а объект Builder передается по значению или по ссылке?
+        $query->where('shown', '=', 0);
+        $notShownPostsCount = $query->get()->count();
+        self::$logger->info("$notShownPostsCount fresh posts rest. chunk size: ".self::$defaultChunkSize);
+        return $notShownPostsCount < self::$defaultChunkSize;
     }
 
-    private static function needResetShown(GalleryCategoryModel $category): ?bool
+    private static function resetShown(Builder $query): void
     {
-        $filter = self::getCategoryFilters($category);
-        $query = <<<QUERY
-select 
-count(*) as count
-from posts 
-where shown = 0
-# PLACE FOR WHERE #                                
-QUERY;
-        $query = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
-        $shownData = DB::select($query);
-        if(empty($shownData)) return null;
-        $countOfNotShown = (int)$shownData[0]->count;
-        self::$logger->info("$countOfNotShown fresh posts rest. chunk size: ".self::$defaultChunkSize);
-        return $countOfNotShown < self::$defaultChunkSize;
-
-
-    }
-
-    private static function resetShown(GalleryCategoryModel $category): void
-    {
+        //todo а объект Builder передается по значению или по ссылке?
         self::$logger->info('resetting shown...');
-        $filter = self::getCategoryFilters($category);
-        $query = <<<QUERY
-update posts set shown = 0 where shown = 1 
-# PLACE FOR WHERE #
-QUERY;
-        $query = preg_replace('/# PLACE FOR WHERE #/', $filter, $query);
-        DB::select($query);
-        //todo дописать обработку ошибок
-
+        $query->update(['shown' => 0]);
     }
 
-    private static function getCategoryFilters(GalleryCategoryModel $category): string
+    private static function setFilters(GalleryCategoryModel $category, Builder $query): Builder
     {
         //todo если во время одной сессии работать с разными категориями то фильтры будут затираться, добавить фильтры по категориям
 //        if(!empty(self::$filterQuery)) return self::$filterQuery;
 
-        if (!empty($category->extendTags)) {
-            $extendFilter = array_map(function ($tag) {
-                return "concat(',', tags, ',') like '%,$tag->id,%'";
-            }, $category->extendTags);
-            $extendFilter = implode(' OR ', $extendFilter);
-            $extendFilter = "($extendFilter)";
-
-        } else {
-            $extendFilter = 'true';
+        if(!empty($category->requiredStatus)) {
+            $query->whereIn('status', $category->requiredStatus);
+        } else if(!empty($category->exceptionStatus)){
+            // Отключать тэги нужно только в том случае если не указан status который мы хотим получить.
+            // Например, получить только 2, но не хотим 0 или 9, первое условие автоматически исключает второе.
+            $query->whereNotIn('status', $category->exceptionStatus);
         }
 
-        if (!empty($category->excludeTags)) {
-
-            $excludeFilter = array_map(function ($tag) {
-                return "concat(',', tags, ',') not like '%,$tag->id,%'";
-            }, $category->excludeTags);
-            $excludeFilter = implode(' AND ', $excludeFilter);
-            $excludeFilter = "($excludeFilter)";
-
-        } else {
-            $excludeFilter = 'true';
+        if(!empty($category->extendTags)){
+            $query->where(function($query) use ($category)
+            {
+                foreach($category->extendTags as $extendTag){
+                    $query->orWhereRaw('concat(",", tags, ",") like concat("%,", ?, ",%")', [$extendTag->id]);
+                }
+            });
         }
 
-        if (!empty($category->includeTags)) {
-
-            $includeFilter = array_map(function ($tag) {
-                return "concat(',', tags, ',') like '%,$tag->id,%'";
-            }, $category->includeTags);
-            $includeFilter = implode(' AND ', $includeFilter);
-            $includeFilter = "($includeFilter)";
-
-        } else {
-            $includeFilter = 'true';
+        if(!empty($category->excludeTags)){
+            $query->where(function($query) use ($category)
+            {
+                foreach($category->excludeTags as $excludeTag){
+                    $query->whereRaw('concat(",", tags, ",") not like concat("%,", ?, ",%")', [$excludeTag->id]);
+                }
+            });
         }
-        self::$filterQuery = "and $extendFilter and $excludeFilter and $includeFilter";
-        return self::$filterQuery;
 
+        if(!empty($category->includeTags)){
+            $query->where(function($query) use ($category)
+            {
+                foreach($category->includeTags as $includeTag){
+                    $query->whereRaw('concat(",", tags, ",") like concat("%,", ?, ",%")', [$includeTag->id]);
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    private static function setOrder(Builder $query)
+    {
+        if(self::$order){
+            $query->orderBy('hash');
+        } else {
+            $query->orderByRaw(
+                'status, ROUND((ROUND(ABS((width/height) - ?), 1) / ?), 1), rand()',
+                [self::$screen, self::$sizeDiffusionLimit]
+            );
+        }
+        return $query;
+    }
+
+    private static function setLimits(GalleryCategoryModel $category, Builder $query): Builder
+    {
+        if(self::$defaultChunkSize > 0) $query->limit(self::$defaultChunkSize);
+//        if(self::$offset > 0) $query->offset(self::$offset);
+        return $query;
     }
 
     private static function setConfig(array $config): void
     {
+        //todo тут все очень плохо, нужен объект конфиг
         if (empty(self::$logger)) self::setLogger();
 
         if(empty($config)) self::$defaultChunkSize = 0;
@@ -225,8 +207,12 @@ QUERY;
         if (isset($config['screen'])) {
             self::$screen = (float)$config['screen'];
         }
-        if (isset($config['offset'])) {
-            self::$offset = (int)$config['offset'];
+//        if (isset($config['offset'])) {
+//            self::$offset = (int)$config['offset'];
+//        }
+        if (isset($config['order'])) {
+            self::$order = true;
+            self::$defaultChunkSize = 0;
         }
     }
 

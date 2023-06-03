@@ -11,6 +11,8 @@ class GalleryCategoryModel
     public bool $enabled = true;
     public int $count = 0;
 
+    public array $requiredStatus = [];
+    public array $exceptionStatus = [];
     public array $extendTags = [];
     public array $excludeTags = [];
     public array $includeTags = [];
@@ -22,10 +24,13 @@ class GalleryCategoryModel
         $this->enabled = isset($data->enabled) && (bool)$data->enabled;
         $this->count = isset($data->count) ? (int)$data->count : 0;
 
+        $requiredStatus = isset($data->required_status) ? (string)$data->required_status : '';
+        $exceptionStatus = isset($data->exception_status) ? (string)$data->exception_status : '';
         $extendTags = isset($data->extend_tags) ? (string)$data->extend_tags : '';
         $excludeTags = isset($data->exclude_tags) ? (string)$data->exclude_tags : '';
         $includeTags = isset($data->include_tags) ? (string)$data->include_tags : '';
 
+        $this->setStatus($requiredStatus, $exceptionStatus);
         $this->setTags($extendTags, $excludeTags, $includeTags);
 
         return $this;
@@ -49,8 +54,7 @@ QUERY;
 
     public function reCount(): GalleryCategoryModel
     {
-        if (!isset($this->id)) return $this;
-        if (empty($this->excludeTags) and empty($this->extendTags) and empty($this->includeTags)) {
+        if ($this->name === 'All') {
             $this->count = GalleryPostAggregator::countAll();
             return $this;
         }
@@ -70,6 +74,17 @@ QUERY;
         $this->includeTags = GalleryTagAggregator::getFromIDs($includeTags);
 
         return $this;
+    }
+    private function setStatus(string $requiredStatus, string $exceptionStatus)
+    {
+        $this->requiredStatus = $this->isValidString($requiredStatus) ? explode(',', $requiredStatus) : [];
+        $this->exceptionStatus = $this->isValidString($exceptionStatus) ? explode(',', $exceptionStatus) : [];
+
+    }
+
+    private function isValidString(string $string): bool
+    {
+        return preg_match('/^[\d,]+$/', trim($string)) === 1;
     }
 
     private function getExtendTags(): string
@@ -94,14 +109,6 @@ QUERY;
         return implode(',', $includeTagsIds);
     }
 
-    private function isValidString(string $string): bool
-    {
-        return preg_match('/^[\d,]+$/', trim($string)) === 1;
-    }
-
-    public function isValid(){
-        //todo здесь проверка целостности объекта, например tags свойства должны быть массивами содержащими TagModel и ничто иное и тд
-    }
 
     public function update(): GalleryCategoryModel
     {
@@ -118,7 +125,6 @@ QUERY;
             ->update($needToUpdateProperties);
         return $this;
     }
-
     public function insert(): GalleryCategoryModel
     {
         $insert = $this->getPropertiesToDB();
@@ -152,11 +158,19 @@ QUERY;
                     case 'includeTags':
                         $result['include_tags'] = $this->getIncludeTags();
                         break;
+                    case 'requiredStatus':
+                        $result['required_status'] = implode(',', $this->requiredStatus);
+                        break;
+                    case 'exceptionStatus':
+                        $result['exception_status'] = implode(',', $this->exceptionStatus);
+                        break;
                     default:
                         $result[$this->toSnakeCase($property)] = $this->$property;
                 }
             }
         }
+        //todo костыль пиздец
+        if($result['exception_status'] === '') unset($result['exception_status']);
         return $result;
     }
     private function compare(GalleryCategoryModel $example): array

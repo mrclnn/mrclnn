@@ -8,24 +8,7 @@ class GalleryCategoryAggregator
 {
     private static array $enabledCategories;
 
-    public static function getEnabledCategories(): array
-    {
 
-        if (isset(self::$enabledCategories)) return self::$enabledCategories;
-        self::$enabledCategories = [];
-
-        $query = <<<QUERY
-select *
-from categories
-where
-    enabled = 1
-QUERY;
-        $enabledCategoriesData = DB::select($query);
-        foreach ($enabledCategoriesData as $enabledCategoryData) {
-            self::$enabledCategories[] = (new GalleryCategoryModel())->fillFromDBData($enabledCategoryData);
-        }
-        return self::$enabledCategories;
-    }
 
     public static function getFromName(string $name): ?GalleryCategoryModel
     {
@@ -54,6 +37,14 @@ QUERY;
     public static function getFakeCategory(): GalleryCategoryModel
     {
         return new GalleryCategoryModel();
+    }
+
+    public static function getFavoritesCategory()
+    {
+        $category =  new GalleryCategoryModel();
+        $category->name = 'favorites';
+        $category->enabled = true;
+        return $category;
     }
 
 
