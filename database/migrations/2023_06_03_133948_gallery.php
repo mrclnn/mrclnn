@@ -64,7 +64,7 @@ class Gallery extends Migration
 
                 $table->dateTime('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
                 $table->dateTime('uploaded_at')->default(DB::raw('CURRENT_TIMESTAMP'));
-                $table->dateTime('estimate_at');
+                $table->dateTime('estimate_at')->nullable();
 
             });
         }
@@ -108,9 +108,9 @@ class Gallery extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('categories');
+        Schema::dropIfExists('posts_tags');
         Schema::dropIfExists('posts');
         Schema::dropIfExists('tags');
-        Schema::dropIfExists('posts_tags');
+        Schema::dropIfExists('categories');
     }
 }
