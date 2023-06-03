@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Gallery;
 
 
 
 use App\GalleryTagAggregator;
 use App\Helper;
+use App\Http\Controllers\Controller;
 use App\Jobs\ParserJob;
 use App\Models\Categories;
 use App\Models\Posts;

@@ -1,11 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Gallery;
 
-use App\GalleryCategoryAggregator;
-use App\GalleryTagAggregator;
+use App\Http\Controllers\Controller;
 use App\Models\Categories;
-use Illuminate\Http\Request;
 use Throwable;
 
 class GalleryMainController extends Controller

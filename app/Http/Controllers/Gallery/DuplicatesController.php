@@ -1,9 +1,10 @@
 <?php
 
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Gallery;
 
 
+use App\Http\Controllers\Controller;
 use App\Models\Categories;
 use App\Services\ImageHash;
 use Illuminate\Support\Facades\DB;
