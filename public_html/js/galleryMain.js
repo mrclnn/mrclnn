@@ -208,6 +208,8 @@ let addCategoryFrame = {
         this.dom.excludeTags.innerHTML = '';
         this.dom.includeTags.innerHTML = '';
 
+        console.log(extendTags);
+
         extendTags.forEach(function(tag){
             this.dom.extendTags.appendChild(tag.cloneNode(true))
         }.bind(this))
@@ -389,23 +391,59 @@ let tagsConfigFrame = {
 
         searchTagInput : null,
         selectedTagsFrame : null,
+        matchedTagsFrame : null,
         selectedAliasFrame : null,
         searchAliasInput : null,
+        createAliasButton : null,
+        createSelectedTag: function (tagData) {
+            let tag = document.createElement('li');
+            tag.classList.add('matchedTag');
+            tag.setAttribute('data-id', tagData.id);
+            tag.innerHTML = tagData.tag;
+            return tag;
+        },
 
         initDOM : function(){
             this.root = document.querySelector('#tags-config')
 
             this.searchTagInput = this.root.querySelector('#search-tag');
+            this.matchedTagsFrame = this.root.querySelector('#matched-tags');
             this.selectedTagsFrame = this.root.querySelector('#selected-tags');
             this.selectedAliasFrame = this.root.querySelector('#tag-alias');
             this.searchAliasInput = this.root.querySelector('#search-alias');
+            this.createAliasButton = this.root.querySelector('#create-alias');
 
             this.initEvents();
         },
         initEvents : function(){
             this.searchTagInput.addEventListener('input', function(e){
-                tagsConfigFrame.searchTag(e.target.value);
-            })
+                this.dom.matchedTagsFrame.dataset.target = 'tags';
+                this.searchTag(e.target.value);
+            }.bind(tagsConfigFrame))
+            this.matchedTagsFrame.addEventListener('click', function(e){
+                if(e.target.classList.contains('matchedTag')){
+                    let target = null;
+                    if(this.dom.matchedTagsFrame.dataset.target === 'alias'){
+                        target = this.dom.selectedAliasFrame;
+                        target.dataset.id = e.target.dataset.id;
+                        target.innerHTML = e.target.innerHTML;
+                        return;
+                    } else if(this.dom.matchedTagsFrame.dataset.target === 'tags'){
+                        target = this.dom.selectedTagsFrame;
+                        let selectedTag = e.target.cloneNode(true);
+                        target.appendChild(selectedTag);
+                        return;
+                    }
+                    console.log('not found dataset.target of matched tags');
+                }
+            }.bind(tagsConfigFrame))
+            this.searchAliasInput.addEventListener('input', function(e){
+                this.dom.matchedTagsFrame.dataset.target = 'alias';
+                this.searchTag(e.target.value);
+            }.bind(tagsConfigFrame))
+            this.createAliasButton.addEventListener('click', function(){
+                this.createTagAlias();
+            }.bind(tagsConfigFrame))
         }
     },
     init : function(){
@@ -415,7 +453,36 @@ let tagsConfigFrame = {
 
     },
 
-    searchTag : function(tag){
-        console.log(tag);
+    collectTagAliasData : function(){
+        let selectedTags = app.collectionToArray(this.dom.selectedTagsFrame.children);
+        let Ids = [];
+        selectedTags.forEach(function(tag){
+            Ids.push(tag.dataset.id)
+        })
+        let aliasId = this.dom.selectedAliasFrame.dataset.id;
+
+        return {
+            'tags' : Ids,
+            'alias' : aliasId
+        }
+    },
+
+    createTagAlias : function(){
+        let data = this.collectTagAliasData();
+        console.log(data);
+    },
+
+    searchTag : function(searchWord){
+        if(searchWord.length < 3){
+            this.dom.matchedTagsFrame.innerHTML = '';
+            return;
+        }
+
+        app.sendRequest('/ajax', {searchTag: searchWord}, function (answer) {
+            this.dom.matchedTagsFrame.innerHTML = '';
+            answer.tags.forEach(function (tag) {
+                this.dom.matchedTagsFrame.appendChild(this.dom.createSelectedTag(tag));
+            }.bind(this))
+        }.bind(this))
     }
 }

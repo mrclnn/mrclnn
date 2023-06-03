@@ -33,3 +33,12 @@
 .hidden{
     display: none;
 }
+
+#selected-tags{
+    display: inline-block;
+    list-style: none;
+}
+#tag-alias{
+    display: inline-block;
+    margin-left: 20px;
+}
