@@ -21,31 +21,15 @@ class GalleryImage
     public function fillFromHtmlDocument(array $document): ?GalleryImage
     {
 
-        if(
-            !(isset($document['img']) and !empty($document['img']) and $document['img'][0] instanceof HtmlNode) or
-            !(isset($document['tags']) and !empty($document['tags']) and $document['tags'][0] instanceof  HtmlNode)
-        ) return null;
-
-        $img = $document['img'][0];
-        $imgURI = $img->attr['src'] ?? $img->attr['data-cfsrc'] ?? null;
-        if(!$imgURI) return null;
-        $this->remoteURI = $imgURI;
+        if( empty($document['img']) || empty($document['tags'])) return null;
+        $this->remoteURI = $document['img'][0]['src'];
         preg_match('/\d+$/', $this->remoteURI, $postID);
         $this->postId = $postID[0];
-        $fileName = preg_replace('/\?\d+/', '',substr($imgURI, strripos($imgURI, '/') + 1));
+        $fileName = preg_replace('/\?\d+/', '',substr($this->remoteURI, strripos($this->remoteURI, '/') + 1));
         $this->fileName = "1/$fileName";
         $this->localURI = public_path() . "/img/$this->fileName";
 
-        $tagsList = $document['tags'][0];
-        $tags = $tagsList->find('li.tag');
-        if(empty($tags)) return $this;
-        foreach($tags as $tag){
-            $class = trim($tag->attr['class']);
-            if(preg_match('/^tag-type-[a-z]+ tag$/', $class) !== 1) return $this;
-            $type = str_replace(['tag-type-', ' tag'], '', $class);
-            $value = preg_replace(['/(^\? )|( [0-9]+$)/', '/\s/'], ['', '_'], $tag->plaintext);
-            $this->tags[$type][] = $value;
-        }
+        $this->tags = $document['tags'];
 
         return $this;
     }
@@ -128,7 +112,15 @@ class GalleryImage
 
     private function getTagsIds(): string
     {
-        return implode(',', GalleryTagAggregator::checkTags($this->tags));
+        $tagsIds = [];
+        foreach($this->tags as $tag){
+            $tagsIds[] = (new GalleryTagModel())
+                ->setName($tag['innerText'])
+                ->setType($tag['class'])
+                ->fillOrInsert()
+                ->id;
+        }
+        return implode(',', $tagsIds);
     }
 
     private function isValid(): bool
