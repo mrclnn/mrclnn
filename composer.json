@@ -7,15 +7,17 @@
     "require": {
         "php": "^7.4.1",
         "ext-curl": "*",
+        "ext-gd": "*",
         "ext-imap": "*",
         "ext-json": "*",
         "ext-mysqli": "*",
         "guzzlehttp/guzzle": "^7.2",
-        "laravel/framework": "5.4.*",
+        "laravel/framework": "5.5.*",
         "laravel/tinker": "~1.0",
+        "leonied7/yandex-disk-api": "dev-master",
         "phpoffice/phpspreadsheet": "^1.18",
         "simplehtmldom/simplehtmldom": "dev-master",
-      "ext-gd": "*"
+        "wapmorgan/morphos": "^3.2"
     },
     "require-dev": {
         "fzaninotto/faker": "~1.4",
