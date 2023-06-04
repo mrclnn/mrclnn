@@ -15,7 +15,7 @@ window.onload = function(){
         // console.log(tag);
         result = confirm('Load category ' + tagName + '?');
         if(result){
-            sendRequest(AJAX_PATH, {action : 'load', tag : tagName}, function(answ){
+            sendRequest('/gallery/load', {tag : tagName}, function(answ){
                 console.log(answ);
             });
         }
@@ -35,7 +35,7 @@ window.onload = function(){
             }
         }
         if(searchWord.length < 4) return;
-        sendRequest(AJAX_PATH, {action : 'search', word : searchWord}, function(answ){
+        sendRequest('/gallery/search', {word : searchWord}, function(answ){
             var catsFromRemote = '';
             if(answ.length > 0){
                 catsFromRemote += '<li class="info">uploaded from remote:</li>'
@@ -475,14 +475,14 @@ let app = {
         categoryLoading : false,
         sendViewed : function(){
             if(this.viewed.length === 0) return;
-            sendRequest(AJAX_PATH,{action : 'shown', posts : this.viewed}, function(answ){
+            sendRequest('/gallery/shown',{posts : this.viewed}, function(answ){
                 // app.logger.info(answ.message);
             });
             this.viewed = [];
         },
         delete : function(callback){
             //todo hardcoded estimate status
-            sendRequest(AJAX_PATH,{action : 'estimate', status : 0, post : this.currentPic.id}, function(answ){
+            sendRequest('/gallery/estimate',{status : 0, post : this.currentPic.id}, function(answ){
                 if(answ.success){
                     if(callback && typeof callback === 'function'){
                         callback();
@@ -512,7 +512,7 @@ let app = {
                 return;
             }
             //todo hardcoded estimate status
-            sendRequest(AJAX_PATH,{action : 'estimate', status : 2, post : this.currentPic.id}, function(answ){
+            sendRequest('/gallery/estimate',{status : 2, post : this.currentPic.id}, function(answ){
                 if(answ.success){
                     this.currentPic.fav = true;
                     app.logger.info('estimated');
@@ -547,7 +547,7 @@ let app = {
             this.preload(5);
         },
         addLoadPics : function(){
-            sendRequest(AJAX_PATH,{action : 'get', category : slider.currentCat, screen : content.clientWidth/content.clientHeight, offset : this.pics.length}, function(answ){
+            sendRequest('/gallery/get',{category : slider.currentCat, screen : content.clientWidth/content.clientHeight, offset : this.pics.length}, function(answ){
                 app.slider.categoryLoading = false;
                 console.log(answ);
                 if(!!answ.posts){
@@ -604,7 +604,7 @@ let app = {
                 categoryName = cat.dataset.value;
             }
             offset = additional ? this.pics.length : 0;
-            sendRequest(AJAX_PATH,{action : 'get', category : categoryName, screen : (content.clientWidth/content.clientHeight).toFixed(1), offset : offset}, function(answ){
+            sendRequest('/gallery/get',{category : categoryName, screen : (content.clientWidth/content.clientHeight).toFixed(1), offset : offset}, function(answ){
                 app.slider.categoryLoading = false;
                 if(!!answ){
                     if(answ.posts.length === 0){

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use ReflectionClass;
 use RuntimeException;
 
 class Categories extends Model
@@ -73,9 +74,17 @@ class Categories extends Model
 
     public function setStatus(int $status): self
     {
-        //todo нужно проверять присутствует ли такой статус в константах
+        if(!$this->isStatusExist($status)) throw new InvalidArgumentException("Trying to set invalid status $status for category");
         $this->status = $status;
         return $this;
+    }
+    private function isStatusExist(int $status): bool
+    {
+        $found = false;
+        foreach((new ReflectionClass(__CLASS__))->getConstants() as $statusName => $statusValue){
+            if($statusValue === $status && strpos($statusName, 'CATEGORY_STATUS_') === 0) $found = true;
+        };
+        return $found;
     }
     public function reCount(): Categories
     {
@@ -94,7 +103,7 @@ class Categories extends Model
     }
     public function setRequiredStatus($requiredStatus): self
     {
-        if($this->required_status === $requiredStatus && isset($this->exceptionStatus)) return $this;
+        if($this->required_status === $requiredStatus && isset($this->requiredStatus)) return $this;
         $this->requiredStatus = collect(self::normalizeStatus($requiredStatus));
         $this->required_status = implode(',', $this->requiredStatus->toArray());
         return $this;

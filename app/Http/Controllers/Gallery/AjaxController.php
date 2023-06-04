@@ -13,6 +13,7 @@ use App\Models\Posts;
 use App\Services\NotaloneService;
 use DateTime;
 use DateTimeZone;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -29,6 +30,12 @@ class AjaxController extends Controller
     use LoggerAwareTrait;
     private array $request = [];
     private array $response = [];
+
+    public function __construct()
+    {
+        $this->setLogger();
+    }
+
     public function execute(Request $request){
 
 //        $helper = new Helper();
@@ -75,21 +82,20 @@ class AjaxController extends Controller
 
         return [];
     }
-    private function getQuery() : array
+    public function get(Request $request) : JsonResponse
     {
+
         // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
         // в качестве дефолтного значения можно оставить 1 для квадратных изображений
-        $screen = (float)$this->request['screen'] ?? 1;
-        $requestedCategory = (string)$this->request['category'];
+        $screen = $request->input('screen', 1);
+        $requestedCategory = $request->input('category', 1);
 
-        //todo нормализовать возвращаемые значения. например CategoryAggregator::getFromName возвращает null если не найдено
-        // в то время как TagAggregator::getFromName будет выбрасывать исключение
         $category = Categories::getFromName($requestedCategory) ?? Categories::getFromTag($requestedCategory);
 
         // если нет категории то возможно запросили просто тэг
         if(!$category || !$category->enabled){
             $this->logger->info("requested category $requestedCategory not found or disabled");
-            return [];
+            return response()->json();
         }
 
         $this->logger->info("requested category $requestedCategory found in list of enabled");
@@ -113,88 +119,209 @@ class AjaxController extends Controller
             ];
         })->toArray();
 
-        return $answer;
+        return response()->json($answer);
 
     }
-    private function searchTagQuery() : array
+    public function estimate(Request $request) : JsonResponse
     {
-        $searchWord = (string)$this->request['searchTag'];
-        $foundTags = GalleryTagAggregator::searchTag($searchWord);
-        return [
-            'tags' => array_values(array_filter($foundTags, function($tag){return !!$tag->enabled;}))
-        ];
+
+        $requestedPostID = $request->input('post');
+        $requestedPostStatus = (int)$request->input('status', 1);
+
+        $requestedPost = Posts::getFromID($requestedPostID);
+        //todo сделать кастомный класс ответа чтобы он содержал в себе по умолчанию поля success message body error, методы для заполнения этих полей
+        if(!$requestedPost) return response()->json([
+            'success' => false,
+            'message' => null,
+            'body' => null,
+            'error' => "Not found post ($requestedPostID)",
+        ]);
+        //todo здесь можно засунуть в один метод estimate любые оценки
+        if($requestedPostStatus === Posts::POST_STATUS_FAVORITE) $requestedPost->estimate();
+        if($requestedPostStatus === Posts::POST_STATUS_DISABLED) $requestedPost->disable();
+        Posts::setShowed([$requestedPostID]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "post ($requestedPostID) estimated successfully",
+            'body' => null,
+            'error' => null,
+        ]);
     }
-    private function addCategoryQuery() : array
+    public function shown(Request $request) : JsonResponse
     {
-        //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
-        $category = (new Categories)
-            ->setExtendTags((string)$this->request['extendTags'])
-            ->setExcludeTags((string)$this->request['excludeTags'])
-            ->setIncludeTags((string)$this->request['includeTags'])
-            ->setName((string)$this->request['name'])
-            ->setCount((int)$this->request['count']);
-        $success = $category->save();
-        if($success) Posts::addCategoryID($category);
-        return [
-            'success' => $success
-        ];
+
+        $idList = $request->input('posts', []);
+        if($idList && Helper::isIntListArray($idList, true)){
+            $affected = Posts::setShowed($idList);
+            return response()->json([
+                'success' => true,
+                'message' => $affected . ' rows shown affected successfully.',
+                'body' => [
+                    'affected' => $affected
+                ],
+                'error' => null,
+            ]);
+        }
+        //todo написать текст ошибки
+        return response()->json([
+            'success' => false,
+            'message' => 'invalid argument',
+            'body' => null,
+            'error' => null,
+        ]);
+
     }
-    private function updateCategoryQuery(): array
+    public function deleteCategory(Request $request): JsonResponse
+    {
+        $category = Categories::getFromID($request->input('categoryID'));
+        if($category) $name = $category->name; $category->delete();
+        return response()->json([
+            'success' => true,
+            'message' => "Category $name deleted successfully",
+            'error' => null,
+            'body' => null,
+        ]);
+    }
+    public function recountCategory(Request $request): JsonResponse
+    {
+        //todo проверка параметра
+
+        $category = Categories::getFromID($request->input('categoryID'));
+        $success = $category && !!$category->reCount()->save();
+        return response()->json([
+            'success' => $success,
+            'message' => "category $category->name recounted successfully",
+            'error' => null,
+            'body' => [
+                'id' => $category->id,
+                'count' => $category->count,
+            ],
+        ]);
+    }
+    public function updateCategory(Request $request): JsonResponse
     {
         //todo проверку типа получаемых данных
-        $categoryID = (int)$this->request['id'];
+        $categoryID = $request->input('id');
         $category = Categories::getFromID($categoryID);
-        if(!$category) return [
+        if(!$category) return response()->json([
             'success' => false,
-            'message' => "Not found category with id $categoryID"
-        ];
+            'message' => "Not found category with id $categoryID",
+            'error' => null, //todo ну вот это странно
+            'body' => null
+        ]);
         Posts::removeCategoryID($category);
         //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
         $success = $category
-            ->setIncludeTags((string)$this->request['includeTags'])
-            ->setExcludeTags((string)$this->request['excludeTags'])
-            ->setExtendTags((string)$this->request['extendTags'])
-            ->setName((string)$this->request['name'])
+            ->setIncludeTags($request->input('includeTags', ''))
+            ->setExcludeTags($request->input('excludeTags', ''))
+            ->setExtendTags($request->input('extendTags', ''))
+            ->setName($request->input('name', ''))
             ->save();
         Posts::addCategoryID($category);
 
-        return [
+        return response()->json([
             'success' => $success,
-        ];
+            'message' => "category successfully updated . . . ",//todo дописать эту херь
+            'error' => null,
+            'body' => null,
+        ]);
     }
-    private function checkCategoryCount(): array
+    public function searchTag(Request $request) : JsonResponse
+    {
+        $searchWord = $request->input('searchTag');
+        $foundTags = GalleryTagAggregator::searchTag($searchWord);
+        return response()->json([
+            'success' => true,
+            'message' => '', //todo
+            'error' => null,
+            'body' => [
+                'tags' => array_values(array_filter($foundTags, function($tag){return !!$tag->enabled;}))
+            ],
+        ]);
+    }
+    public function addCategory(Request $request) : JsonResponse
+    {
+        //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
+        $category = (new Categories)
+            ->setExtendTags($request->input('extendTags'))
+            ->setExcludeTags($request->input('excludeTags'))
+            ->setIncludeTags($request->input('includeTags'))
+            ->setName($request->input('name'))
+            ->setCount($request->input('count'));
+        $success = $category->save();
+        if($success) Posts::addCategoryID($category);
+        return response()->json([
+            'success' => $success,
+            'error' => null, //todo
+            'message' => '',
+            'body' => []
+        ]);
+    }
+
+    public function checkCategoryCount(Request $request): JsonResponse
     {
         $category = Categories::getFakeCategory()
-            ->setExtendTags((string)$this->request['extendTags'])
-            ->setExcludeTags((string)$this->request['excludeTags'])
-            ->setIncludeTags((string)$this->request['includeTags'])
+            ->setExtendTags($request->input('extendTags'))
+            ->setExcludeTags($request->input('excludeTags'))
+            ->setIncludeTags($request->input('includeTags'))
             ->reCount();
 
-        return [
-            'count' => $category->count
-        ];
+        return response()->json([
+            'success' => true,
+            'message' => '',
+            'error' => null,
+            'body' => [
+                'count' => $category->count,
+            ],
+        ]);
     }
-    private function deleteCategoryQuery(): array
+
+
+
+
+    public function search() : array
     {
-        $category = Categories::getFromID((int)$this->request['categoryID']);
-        if($category) $category->delete();
-        return ['success' => true ];
-    }
-    private function recountCategoryQuery(): array
-    {
-        //todo проверка параметра
-        $category = Categories::getFromID((int)$this->request['categoryID']);
-        $success = $category && !!$category->reCount()->save();
-        return [
-            'success' => $success,
-            'id' => $category->id,
-            'count' => $category->count,
-        ];
-    }
-    private function notalone(){
         return $this->saveDie();
-        return NotaloneService::process($this->request);
+//        $parser = ParserAggregator::getParser('search');
+//        // todo не безопасно
+//        $json = $parser->parse([$this->request['word']])['page'];
+//        return json_decode($json, true);
     }
+    public function load() : array
+    {
+
+        return $this->saveDie();
+//        try{
+//            $author_tag = (string)$this->request['tag'];
+//            $this->logger->info('Received request to dispatch category ' . $author_tag . ' ...');
+//            $cat = DB::select('SELECT id FROM categories WHERE tag = ?', [$this->request['load']]);
+//            if(empty($cat) || $cat[0]->id == 1){
+//                dispatch(new ParserJob($this->request['load']));
+//                $this->clearTmpDir($this->request['load']);
+//                $this->logger->info('Dispatching category ' . $author_tag . ' ...');
+//                $affected = DB::table('needle_authors')->where('author', $author_tag)->update(['processed' => 1]);
+//                if($affected !== 1){
+//                    $this->logger->warning('affected needle_authors = ' . $affected);
+//                    return ['success' => true, 'reason' => 'affected needle_authors = ' . $affected];
+//                }
+//                return ['success' => true];
+//            }
+//            $this->logger->info('Category ' . $author_tag . 'already exist. Skip.');
+//            $affected = DB::table('needle_authors')->where('author', $author_tag)->update(['processed' => 1]);
+//            if($affected !== 1){
+//                return ['success' => false, 'reason' => 'update processed query returned ' . $affected . ' rows.'];
+//            }
+//            return ['success' => true, 'reason' => 'category already exist. id = ' . $cat[0]->id];
+//        } catch (Throwable $e){
+//            return ['success' => false, 'reason' => $e->getMessage()];
+//        }
+    }
+
+
+
+
+
     private function duplicatesQuery() : array
     {
 
@@ -257,82 +384,6 @@ class AjaxController extends Controller
 ////        $this->eventStreamMessage('end');
 //        return ['success' => true, 'env' => ['tag_name' => $category_name, 'tag_id' =>$category_id, 'dupl' => $duplicates]];
     }
-    private function setRank(int $catId, int $rank, array $rejectedIDs){
-
-        return $this->saveDie();
-        $affected = DB::table('categories')->where('id', $catId)->update(['rank' => $rank]);
-        if(!empty($rejectedIDs)){
-            DB::select(sprintf('UPDATE posts SET status = 3, estimate_at = %s WHERE id IN (%s)', '\''.$this->getTimeForDB().'\'',implode(',', $rejectedIDs)));
-        }
-        $affected = 1;
-        if ($affected === 1){
-            return ['success' => true, 'message' => 'successfully updated'];
-        }
-        return ['success' => false, 'message' => 'affected: '.$affected];
-
-    }
-    private function duplicatePreload(int $offset){
-        return $this->saveDie();
-        $limit = 50;
-        $posts = DB::select('
-SELECT file_name as src, tag, hp.id as id, category_id
-FROM posts AS hp
-JOIN 
-(SELECT id, tag FROM categories 
-WHERE deleted_at IS NULL and enabled = 1 AND type = 1 AND rank = 0
-ORDER BY id
-LIMIT 1) AS category
-WHERE hp.category_id = category.id AND hp.status != 3
-ORDER BY tags_character desc, hash
-LIMIT ?
-OFFSET ?
-', [$limit, $limit * $offset]);
-        return ['success' => true, 'content' => $posts];
-    }
-    private function duplicatePost(int $id){
-        return $this->saveDie();
-        $affected = DB::table('posts')->where('id', $id)->update(['status' => 3, 'estimate_at' => $this->getTimeForDB()]);
-        if($affected === 1){
-            return ['success' => true, 'message' => 'deleted successfully post: '.$id];
-        } else {
-            return ['success' => false, 'message' => 'affected: '.$affected];
-        }
-
-    }
-    private function rejectAuthors(string $tag) : array
-    {
-        $this->saveDie();
-        $affected = DB::table('needle_authors')->where('author', $tag)->update(['processed' => 2]);
-        if($affected !== 1) return ['success' => false, 'reason' => 'affected processed = 2 needle_authors = ' . $affected];
-        if(!$this->clearTmpDir($tag)) return ['success' => false, 'reason' => 'failed to clear tmp files'];
-        return ['success' => true];
-    }
-    private function loadAuthors()
-    {
-        return $this->saveDie();
-        $author = DB::select('SELECT author, author_alias FROM needle_authors WHERE processed = 0 AND preloaded = 1 ORDER BY id');
-        $all = count($author);
-        if(!$author) return ['failed' => false, 'empty' => true, 'reason' => 'empty select query needle_authors'];
-        $tag = $author[0]->author;
-        if(!$tag) return ['failed' => true, 'reason' => 'empty tag from query needle_authors'];
-        $alias = $author[0]->author_alias ?: $this->getTagAlias($tag);
-        try{
-            $regex = public_path('/img/tmp/') . $alias . '_*';
-            $srcList = array_map(function($fileName){
-                return str_replace('/home/u946280762/domains/mrclnn.com/public_html/', 'https://mrclnn.com/', $fileName);
-            }, glob($regex));
-            if(!$srcList){
-                $regex = public_path('/img/tmp/') . $tag . '_*';
-                $srcList = array_map(function($fileName){
-                    return str_replace('/home/u946280762/domains/mrclnn.com/public_html/', 'https://mrclnn.com/', $fileName);
-                }, glob($regex));
-            }
-
-            return ['tag' => $tag, 'src' => $srcList, 'count' => $this->getArtistCount($tag), 'all' => $all];
-        } catch (Throwable $e){
-            return ['failed' => true, 'reason' => $e->getMessage() . ' in file ' . $e->getFile() . ' at line ' . $e->getLine()];
-        }
-    }
     private function getArtistCount(string $tag) : ?int
     {
         $url_tag = str_replace(['+', '\''],['%2b', '&#039;'], $tag);
@@ -365,106 +416,6 @@ OFFSET ?
         $function = $stuckTrace[0]['function'] ?? '';
         return ['success' => false, 'message' => "temporary unavailable function: $function"];
     }
-    private function loadQuery() : array
-    {
-
-        return $this->saveDie();
-        try{
-            $author_tag = (string)$this->request['tag'];
-            $this->logger->info('Received request to dispatch category ' . $author_tag . ' ...');
-            $cat = DB::select('SELECT id FROM categories WHERE tag = ?', [$this->request['load']]);
-            if(empty($cat) || $cat[0]->id == 1){
-                dispatch(new ParserJob($this->request['load']));
-                $this->clearTmpDir($this->request['load']);
-                $this->logger->info('Dispatching category ' . $author_tag . ' ...');
-                $affected = DB::table('needle_authors')->where('author', $author_tag)->update(['processed' => 1]);
-                if($affected !== 1){
-                    $this->logger->warning('affected needle_authors = ' . $affected);
-                    return ['success' => true, 'reason' => 'affected needle_authors = ' . $affected];
-                }
-                return ['success' => true];
-            }
-            $this->logger->info('Category ' . $author_tag . 'already exist. Skip.');
-            $affected = DB::table('needle_authors')->where('author', $author_tag)->update(['processed' => 1]);
-            if($affected !== 1){
-                return ['success' => false, 'reason' => 'update processed query returned ' . $affected . ' rows.'];
-            }
-            return ['success' => true, 'reason' => 'category already exist. id = ' . $cat[0]->id];
-        } catch (Throwable $e){
-            return ['success' => false, 'reason' => $e->getMessage()];
-        }
-    }
-    private function estimateQuery() : array
-    {
-        $requestedPostID = (int)$this->request['post'];
-        $requestedPostStatus = (int)$this->request['status'];
-
-        $requestedPost = Posts::getFromID($requestedPostID);
-        if(!$requestedPost) return [
-            'success' => false,
-            'error' => "Not found post ($requestedPostID)"
-        ];
-        Helper::test($this->logger);
-        if($requestedPostStatus === Posts::POST_STATUS_FAVORITE) $requestedPost->estimate();
-        if($requestedPostStatus === Posts::POST_STATUS_DISABLED) $requestedPost->disable();
-        Posts::setShowed([$requestedPostID]);
-
-        return [
-            'success' => true,
-            'message' => "post ($requestedPostID) estimated successfully",
-        ];
-    }
-    private function insertRecordToHNA(string $tags_artist, int $estimate) : array
-    {
-        if($tags_artist === ''){
-            return ['success' => true, 'message' => 'Empty tags_artist received.'];
-        }
-        $info = '';
-        foreach (explode(' ', $tags_artist) as $tag){
-            $info .= 'tag ' . $tag;
-            $isNew = !DB::select(')', [$tag]);
-            $info .= $isNew ? ' is new.' : ' already exist.';
-            if(!$isNew) return ['success' => true, 'message' => $info];
-
-            if($estimate === 0){
-                $processed = 3;
-            } elseif($estimate === 2){
-                $processed = 0;
-                $this->dispatch(new ParserJob($tag, 16));
-            }
-            // записываем в hna полученный тег
-            $success = DB::table('needle_authors')->insert(
-                ['author' => $tag, 'author_alias' => $this->getTagAlias($tag), 'processed' => $processed]);
-            if($processed === 0){
-                $info .= $success ? ' added successfully. ' : ' failed to add. ';
-            } else {
-                $info .= $success ? ' rejected successfully. ' : ' failed to reject. ';
-            }
-            // отмечаем все посты с таким тегом
-            DB::select('UPDATE posts SET debug = 1 WHERE category_id = 40 AND LOCATE(?, tags_artist) != 0', [$tag]);
-
-        }
-        return ['success' => true, 'message' => $info];
-    }
-    private function searchQuery() : array
-    {
-        return $this->saveDie();
-//        $parser = ParserAggregator::getParser('search');
-//        // todo не безопасно
-//        $json = $parser->parse([$this->request['word']])['page'];
-//        return json_decode($json, true);
-    }
-    private function shownQuery() : array
-    {
-        $idList = $this->request['posts'];
-        if(Helper::isIntListArray($idList, true)){
-            $affected = Posts::setShowed($this->request['posts']);
-            return ['success' => true, 'affected' => $affected, 'message' => $affected . ' rows shown affected successfully.'];
-        }
-        //todo написать текст ошибки
-        return ['success' => false, 'message' => 'invalid argument'];
-
-    }
     private function setLogger() : void
     {
         $this->logger = new Logger(
@@ -477,12 +428,6 @@ OFFSET ?
                 new PsrLogMessageProcessor(),
             ]
         );
-    }
-    private function getTimeForDB() : string
-    {
-        $date = new DateTime();
-        $date->setTimezone(new DateTimeZone('Europe/Minsk'));
-        return $date->format('Y.m.d H:i:s');
     }
     private function getTagAlias(string $tag) : string
     {

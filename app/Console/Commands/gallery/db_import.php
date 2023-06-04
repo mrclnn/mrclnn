@@ -7,14 +7,14 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-class db_export extends Command
+class db_import extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'gallery:db_export {table=null}';
+    protected $signature = 'gallery:db_import';
 
     /**
      * The console command description.
@@ -41,6 +41,7 @@ class db_export extends Command
     public function handle()
     {
 
+        //todo здесь должна быть защита от того чтобы не вставить в таблицу в которой уже есть какие-то данные
         $tables = [
             'posts',
             'tags',
@@ -50,23 +51,42 @@ class db_export extends Command
 
         foreach($tables as $table){
 
-            $filename = $this->getExportFileName($table);
+            $fileName = $this->findExportFile($table);
+            if(!$fileName) continue;
 
-            $originPath = "{$this->getSQLStorage()}/$filename";
-            $targetPath = "{$this->getExportStorage()}/$filename";
+            $originPath = "{$this->getExportStorage()}/$fileName";
+            $targetPath = "{$this->getSQLStorage()}/$fileName";
 
-            if(file_exists($originPath)) unlink($originPath);
+            if(file_exists($targetPath)) unlink($targetPath);
+            copy($originPath, $targetPath);
 
             //todo мы не получаем никакой обратной связи от скля
-            DB::select("SELECT * INTO OUTFILE '$originPath' FROM $table");
+            $res = DB::select("LOAD DATA INFILE '$targetPath' INTO TABLE $table");
+            echo json_encode($res);
+            unlink($targetPath);
 
-            if($originPath !== $targetPath) rename($originPath, $targetPath);
+            echo "import in $table successfully done\n";
 
-            echo "Export file for $table successfully created\n";
         }
 
     }
 
+    private function findExportFile(string $table): ?string
+    {
+
+        foreach(scandir($this->getExportStorage()) as $exportFile){
+
+            if(
+                strpos($exportFile, "export-$table-") === 0 &&
+                strpos($exportFile, '.sql') === strlen($exportFile) - 4
+            ){
+                $foundFiles[] = $exportFile;
+            }
+        }
+        rsort($foundFiles, SORT_STRING);
+        return $foundFiles[0] ?? null;
+
+    }
     private function getExportFileName(string $table): string
     {
         return "export-$table-" . Carbon::now()->format('Y-m-d') . '.sql';

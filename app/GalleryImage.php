@@ -88,16 +88,25 @@ class GalleryImage
         $params = [
             'width' => $this->width,
             'height' => $this->height,
+            'ratio' => round($this->width / $this->height, 1),
             'size' => $this->size,
             'category_id' => 0,
             'file_name' => $this->fileName,
             'original_uri' => $this->remoteURI,
             'post_id' => $this->postId,
             'hash' => (new ImageHash())->createHashFromFile($this->localURI),
-            'tags' => $this->getTagsIds()
         ];
-        return DB::table('posts')
-            ->insert($params);
+        $postID = DB::table('posts')->insertGetId($params);
+        $insert = [];
+        foreach(explode(',', $this->getTagsIds()) as $tagID){
+            $insert[] = [
+                'posts_id' => $postID,
+                'tags_id' => $tagID
+            ];
+        }
+        DB::table('posts_tags')->insert($insert);
+        //todo тут по хорошему все переписать вообще
+        return true;
 
     }
 

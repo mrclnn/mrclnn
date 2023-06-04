@@ -18,6 +18,11 @@ class Helper
             return $model->$field;
         })->toArray();
     }
+    // убирает с конца адреса папки слэш, заменяет бэкслеши на обычные слэши
+    public static function clearDirPath(string $path): string
+    {
+        return preg_replace(['/\\\\/', '/\/$/'], ['/', ''], $path);
+    }
     public static function isIntListString(string $string): bool
     { // true если строка содержит только цифры разделённые запятой
         return preg_match('/^[\d,]+$/', trim($string)) === 1;
