@@ -82,7 +82,7 @@ class AjaxController extends Controller
 
         return [];
     }
-    public function get(Request $request)
+    public function get(Request $request) : JsonResponse
     {
 
         // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
@@ -95,7 +95,7 @@ class AjaxController extends Controller
         // если нет категории то возможно запросили просто тэг
         if(!$category || !$category->enabled){
             $this->logger->info("requested category $requestedCategory not found or disabled");
-            return [];
+            return response()->json();
         }
 
         $this->logger->info("requested category $requestedCategory found in list of enabled");
@@ -172,6 +172,114 @@ class AjaxController extends Controller
         ]);
 
     }
+    public function deleteCategory(Request $request): JsonResponse
+    {
+        $category = Categories::getFromID($request->input('categoryID'));
+        if($category) $name = $category->name; $category->delete();
+        return response()->json([
+            'success' => true,
+            'message' => "Category $name deleted successfully",
+            'error' => null,
+            'body' => null,
+        ]);
+    }
+    public function recountCategory(Request $request): JsonResponse
+    {
+        //todo проверка параметра
+
+        $category = Categories::getFromID($request->input('categoryID'));
+        $success = $category && !!$category->reCount()->save();
+        return response()->json([
+            'success' => $success,
+            'message' => "category $category->name recounted successfully",
+            'error' => null,
+            'body' => [
+                'id' => $category->id,
+                'count' => $category->count,
+            ],
+        ]);
+    }
+    public function updateCategory(Request $request): JsonResponse
+    {
+        //todo проверку типа получаемых данных
+        $categoryID = $request->input('id');
+        $category = Categories::getFromID($categoryID);
+        if(!$category) return response()->json([
+            'success' => false,
+            'message' => "Not found category with id $categoryID",
+            'error' => null, //todo ну вот это странно
+            'body' => null
+        ]);
+        Posts::removeCategoryID($category);
+        //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
+        $success = $category
+            ->setIncludeTags($request->input('includeTags', ''))
+            ->setExcludeTags($request->input('excludeTags', ''))
+            ->setExtendTags($request->input('extendTags', ''))
+            ->setName($request->input('name', ''))
+            ->save();
+        Posts::addCategoryID($category);
+
+        return response()->json([
+            'success' => $success,
+            'message' => "category successfully updated . . . ",//todo дописать эту херь
+            'error' => null,
+            'body' => null,
+        ]);
+    }
+    public function searchTag(Request $request) : JsonResponse
+    {
+        $searchWord = $request->input('searchTag');
+        $foundTags = GalleryTagAggregator::searchTag($searchWord);
+        return response()->json([
+            'success' => true,
+            'message' => '', //todo
+            'error' => null,
+            'body' => [
+                'tags' => array_values(array_filter($foundTags, function($tag){return !!$tag->enabled;}))
+            ],
+        ]);
+    }
+    public function addCategory(Request $request) : JsonResponse
+    {
+        //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
+        $category = (new Categories)
+            ->setExtendTags($request->input('extendTags'))
+            ->setExcludeTags($request->input('excludeTags'))
+            ->setIncludeTags($request->input('includeTags'))
+            ->setName($request->input('name'))
+            ->setCount($request->input('count'));
+        $success = $category->save();
+        if($success) Posts::addCategoryID($category);
+        return response()->json([
+            'success' => $success,
+            'error' => null, //todo
+            'message' => '',
+            'body' => []
+        ]);
+    }
+
+    public function checkCategoryCount(Request $request): JsonResponse
+    {
+        $category = Categories::getFakeCategory()
+            ->setExtendTags($request->input('extendTags'))
+            ->setExcludeTags($request->input('excludeTags'))
+            ->setIncludeTags($request->input('includeTags'))
+            ->reCount();
+
+        return response()->json([
+            'success' => true,
+            'message' => '',
+            'error' => null,
+            'body' => [
+                'count' => $category->count,
+            ],
+        ]);
+    }
+
+
+
+
     public function search() : array
     {
         return $this->saveDie();
@@ -214,81 +322,6 @@ class AjaxController extends Controller
 
 
 
-    private function searchTagQuery() : array
-    {
-        $searchWord = (string)$this->request['searchTag'];
-        $foundTags = GalleryTagAggregator::searchTag($searchWord);
-        return [
-            'tags' => array_values(array_filter($foundTags, function($tag){return !!$tag->enabled;}))
-        ];
-    }
-    private function addCategoryQuery() : array
-    {
-        //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
-        $category = (new Categories)
-            ->setExtendTags((string)$this->request['extendTags'])
-            ->setExcludeTags((string)$this->request['excludeTags'])
-            ->setIncludeTags((string)$this->request['includeTags'])
-            ->setName((string)$this->request['name'])
-            ->setCount((int)$this->request['count']);
-        $success = $category->save();
-        if($success) Posts::addCategoryID($category);
-        return [
-            'success' => $success
-        ];
-    }
-    private function updateCategoryQuery(): array
-    {
-        //todo проверку типа получаемых данных
-        $categoryID = (int)$this->request['id'];
-        $category = Categories::getFromID($categoryID);
-        if(!$category) return [
-            'success' => false,
-            'message' => "Not found category with id $categoryID"
-        ];
-        Posts::removeCategoryID($category);
-        //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
-        $success = $category
-            ->setIncludeTags((string)$this->request['includeTags'])
-            ->setExcludeTags((string)$this->request['excludeTags'])
-            ->setExtendTags((string)$this->request['extendTags'])
-            ->setName((string)$this->request['name'])
-            ->save();
-        Posts::addCategoryID($category);
-
-        return [
-            'success' => $success,
-        ];
-    }
-    private function checkCategoryCount(): array
-    {
-        $category = Categories::getFakeCategory()
-            ->setExtendTags((string)$this->request['extendTags'])
-            ->setExcludeTags((string)$this->request['excludeTags'])
-            ->setIncludeTags((string)$this->request['includeTags'])
-            ->reCount();
-
-        return [
-            'count' => $category->count
-        ];
-    }
-    private function deleteCategoryQuery(): array
-    {
-        $category = Categories::getFromID((int)$this->request['categoryID']);
-        if($category) $category->delete();
-        return ['success' => true ];
-    }
-    private function recountCategoryQuery(): array
-    {
-        //todo проверка параметра
-        $category = Categories::getFromID((int)$this->request['categoryID']);
-        $success = $category && !!$category->reCount()->save();
-        return [
-            'success' => $success,
-            'id' => $category->id,
-            'count' => $category->count,
-        ];
-    }
     private function duplicatesQuery() : array
     {
 

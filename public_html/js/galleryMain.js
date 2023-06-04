@@ -147,23 +147,16 @@ let addCategoryFrame = {
     },
     deleteCategory: function (categoryID) {
         // console.log('trying to delete category id: '+categoryID)
-        let query = {
-            deleteCategory: true,
-            categoryID: categoryID
-        }
-        app.sendRequest('/ajax', query, function (answer) {
+        app.sendRequest('/gallery/delete-category', {categoryID: categoryID}, function (answer) {
             console.log(answer);
         })
     },
     recountCategory: function (categoryID) {
-        let query = {
-            recountCategory: true,
-            categoryID: categoryID
-        }
-        app.sendRequest('/ajax', query, function(answer){
+
+        app.sendRequest('/gallery/recount-category', {categoryID: categoryID}, function(answer){
             if(answer.success){
-                let categoryDOM = this.dom.categoriesFrame.querySelector('.category[data-id="'+answer.id+'"] .category-count');
-                categoryDOM.innerHTML = answer.count;
+                let categoryDOM = this.dom.categoriesFrame.querySelector('.category[data-id="'+answer.body.id+'"] .category-count');
+                categoryDOM.innerHTML = answer.body.count;
             } else {
                 console.error(answer.error);
             }
@@ -185,14 +178,13 @@ let addCategoryFrame = {
             return;
         }
         let query = {
-            updateCategory: true,
             id: this.dom.addButton.dataset.id,
             name: this.dom.nameInput.value.trim(),
             extendTags: associatedTags.extend.toString(),
             excludeTags: associatedTags.exclude.toString(),
             includeTags: associatedTags.include.toString(),
         }
-        app.sendRequest('/ajax', query, function (answer) {
+        app.sendRequest('/gallery/update-category', query, function (answer) {
             console.log(answer);
         })
     },
@@ -292,8 +284,8 @@ let addCategoryFrame = {
             return;
         }
         console.log('searching word: ' + searchWord + '...');
-        app.sendRequest('/ajax', {searchTag: searchWord}, function (answer) {
-            answer.tags.forEach(function (tag) {
+        app.sendRequest('/gallery/search-tag', {searchTag: searchWord}, function (answer) {
+            answer.body.tags.forEach(function (tag) {
                 this.dom.matchedTags.appendChild(this.dom.createMatchedTag(tag));
             }.bind(this))
         }.bind(this))
@@ -355,14 +347,13 @@ let addCategoryFrame = {
             return;
         }
         let query = {
-            addCategory: true,
             count: +this.dom.postsCount.innerHTML,
             name: this.dom.nameInput.value.trim(),
             extendTags: associatedTags.extend.toString(),
             excludeTags: associatedTags.exclude.toString(),
             includeTags: associatedTags.include.toString(),
         }
-        app.sendRequest('/ajax', query, function (answer) {
+        app.sendRequest('/gallery/add-category', query, function (answer) {
             console.log(answer);
         })
 
@@ -374,13 +365,12 @@ let addCategoryFrame = {
             return;
         }
         let query = {
-            checkCategoryCount: true,
             extendTags: associatedTags.extend.toString(),
             excludeTags: associatedTags.exclude.toString(),
             includeTags: associatedTags.include.toString(),
         }
-        app.sendRequest('/ajax', query, function (answer) {
-            this.updatePostsCount(answer.count);
+        app.sendRequest('/gallery/check-category-count', query, function (answer) {
+            this.updatePostsCount(answer.body.count);
         }.bind(this))
     }
 }
@@ -478,7 +468,7 @@ let tagsConfigFrame = {
             return;
         }
 
-        app.sendRequest('/ajax', {searchTag: searchWord}, function (answer) {
+        app.sendRequest('/gallery/search-tag', {searchTag: searchWord}, function (answer) {
             this.dom.matchedTagsFrame.innerHTML = '';
             answer.tags.forEach(function (tag) {
                 this.dom.matchedTagsFrame.appendChild(this.dom.createSelectedTag(tag));

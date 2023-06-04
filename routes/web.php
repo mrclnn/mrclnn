@@ -15,8 +15,9 @@
 use Illuminate\Support\Facades\Route;
 
 Route::group(['namespace' => 'Gallery'], function(){
-    Route::get('/gallery/view', 'GalleryViewerController@execute');
+
     Route::get('/gallery', 'GalleryMainController@execute');
+    Route::get('/gallery/view', 'GalleryViewerController@execute');
     Route::get('/gallery/config', 'GalleryConfigController@execute');
     Route::get('/duplicates', 'DuplicatesController@execute');
 
@@ -26,6 +27,18 @@ Route::group(['namespace' => 'Gallery'], function(){
     Route::post('/gallery/get', 'AjaxController@get');
     Route::post('/gallery/shown', 'AjaxController@shown');
     Route::post('/gallery/estimate', 'AjaxController@estimate');
+
+    Route::post('/gallery/delete-category', 'AjaxController@deleteCategory');
+    Route::post('/gallery/recount-category', 'AjaxController@recountCategory');
+    Route::post('/gallery/update-category', 'AjaxController@updateCategory');
+    Route::post('/gallery/add-category', 'AjaxController@addCategory');
+    Route::post('/gallery/check-category-count', 'AjaxController@checkCategoryCount');
+
+    Route::post('/gallery/search-tag', 'AjaxController@searchTag');
+
+
+
+
     Route::post('/gallery/search', 'AjaxController@search');
     Route::post('/gallery/load', 'AjaxController@load');
 });
