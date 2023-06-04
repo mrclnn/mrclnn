@@ -17,9 +17,17 @@ use Illuminate\Support\Facades\Route;
 Route::group(['namespace' => 'Gallery'], function(){
     Route::get('/gallery/view', 'GalleryViewerController@execute');
     Route::get('/gallery', 'GalleryMainController@execute');
-    Route::post('/ajax', 'AjaxController@execute');
     Route::get('/gallery/config', 'GalleryConfigController@execute');
     Route::get('/duplicates', 'DuplicatesController@execute');
+
+    Route::post('/ajax', 'AjaxController@execute');
+
+//    Route::post('/gallery/get', 'AjaxController@execute');
+    Route::post('/gallery/get', 'AjaxController@get');
+    Route::post('/gallery/shown', 'AjaxController@shown');
+    Route::post('/gallery/estimate', 'AjaxController@estimate');
+    Route::post('/gallery/search', 'AjaxController@search');
+    Route::post('/gallery/load', 'AjaxController@load');
 });
 
 Route::get('/', 'MainController@execute');
