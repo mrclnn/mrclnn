@@ -94,7 +94,7 @@ class Categories extends Model
     }
     public function setRequiredStatus($requiredStatus): self
     {
-        if($this->required_status === $requiredStatus && isset($this->exceptionStatus)) return $this;
+        if($this->required_status === $requiredStatus && isset($this->requiredStatus)) return $this;
         $this->requiredStatus = collect(self::normalizeStatus($requiredStatus));
         $this->required_status = implode(',', $this->requiredStatus->toArray());
         return $this;
