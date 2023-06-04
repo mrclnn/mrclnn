@@ -91,7 +91,7 @@ class Categories extends Model
         if(isset($this->id)){
             $this->count = $this->getPostsQuery()->count();
         } else {
-            $this->count = Posts::getPostsBuilderFilteredByCategory($this)->count();
+            $this->count = Posts::getPostsBuilderFilteredByTags($this)->count();
         }
         return $this;
     }
@@ -152,7 +152,7 @@ class Categories extends Model
         if(!isset($this->includeTags)) $this->setIncludeTags($this->include_tags ?? null);
         return $this->includeTags;
     }
-    public function setIncludeTags($includeTags): Categories
+    public function setIncludeTags($includeTags): Categories//todo почему не указан тип аргумента?
     {
         //todo возможна ли тут коллизия? exclude_tags и excludeTags могут измениться только через этот метод
         if($this->include_tags === $includeTags && isset($this->includeTags)) return $this;
