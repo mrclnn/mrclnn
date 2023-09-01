@@ -2,32 +2,74 @@
 
 namespace App\Http\Controllers;
 
-use App\Categories;
+use AmoCRM\Client\AmoCRMApiClient;
+use App\GalleryCategoryAggregator;
+use App\GalleryCategoryModel;
+use App\GalleryImage;
+use App\GalleryPostAggregator;
+use App\GalleryPostModel;
+use App\GalleryTagAggregator;
+use App\GalleryTagModel;
+use App\Helper;
 use App\Jobs\AVBYtmpJob;
 use App\Jobs\BXUpdaterJob;
+use App\Jobs\ParserConfig;
 use App\Jobs\ParserJob;
+use App\Jobs\ParserJobConfig;
+use App\Jobs\ParserJobNew;
 use App\Jobs\SiteParser;
 use App\Jobs\TestJob;
+use App\Jobs\TmpJob;
+use App\lib\AmoCrmApi\AmoCrmApi;
+use App\Models\Categories;
+use App\Models\Posts;
+use App\Models\Tags;
+use App\Parser;
+use App\ParserAggregator;
 use App\Product_types;
-use App\GalleryPosts;
+use App\Services\bbgClientApi;
 use DateTime;
 use DateTimeZone;
+use Generator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Handler\CurlHandler;
 use GuzzleHttp\Handler\CurlMultiHandler;
 use GuzzleHttp\HandlerStack;
+use Illuminate\Cache\Events\CacheEvent;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use App\Services\ImageHash;
+use Imagick;
+use InvalidArgumentException;
+use Leonied7\Yandex\Disk;
+use LogicException;
 use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
+use morphos\Currency;
+use morphos\Russian\MoneySpeller;
+use pepeEpe\FastImageCompare\ComparatorFileCrc32b;
+use pepeEpe\FastImageCompare\ComparatorImageMagick;
+use pepeEpe\FastImageCompare\FastImageCompare;
+use pepeEpe\FastImageCompare\IComparable;
+use pepeEpe\FastImageCompare\NormalizerSquaredSize;
+use Phar;
 use Psr\Log\LoggerAwareTrait;
+use ReflectionClass;
+use simplehtmldom\HtmlDocument;
+use simplehtmldom\HtmlNode;
 use simplehtmldom\HtmlWeb;
 use Throwable;
+use function morphos\Russian\inflectName;
+
+//use function morphos\Russian\inflectName;
+
+//use function 'app/lib/Morphos-master/src/Russian/functions.php';
 
 class MainController extends Controller
 {
@@ -36,9 +78,262 @@ class MainController extends Controller
     private $offset = 0;
     private $doc;
 
+    private function displayImages(array $res)
+    {
+        $img = array_map(function($path){
+            return str_replace('D:\pr\OSPanel\domains\mrclnn\public_html\\', '', "<img style='width: 20%' src='$path'>");
+        }, $res);
+        echo implode('', $img);
+    }
     public function execute(Request $request){
 
-        echo 'main page';
+//        echo 'main page<br><br>';
+
+        try{
+
+            $offset = $request->input('offset');
+
+            $posts = DB::table('posts')->orderBy('id', 'desc')->limit(10)->offset($offset)->select('file_name')->get();
+//            $posts = DB::table('posts')->orderBy('id', 'desc')->whereBetween('id', [102247, 102256])->limit(10)->select('file_name')->get();
+            $posts = array_map(function($post){ return public_path("img/$post->file_name"); }, $posts->toArray());
+
+//            $posts = array_filter(scandir(public_path('img/tmp')), function($file){return strlen($file) > 2;});
+//            $posts = array_map(function($post){ return public_path("img/tmp/$post"); }, $posts);
+            $enough = 0.15;
+
+            $FIC = new FastImageCompare();
+            $imageMagickComparator = new ComparatorImageMagick(ComparatorImageMagick::METRIC_NCC,[]);
+            $imageMagickComparator->registerNormalizer(new NormalizerSquaredSize(16));
+            $FIC->registerComparator($imageMagickComparator,IComparable::PASSTHROUGH);
+            $this->displayImages($posts);
+            echo "<H1>FIRST STEP</H1><BR><BR>";
+            $duplicates = $FIC->findDuplicates($posts, $enough);
+            $this->displayImages($duplicates);
+
+            echo "<H1>SECOND STEP</H1><BR><BR>";
+            $uniques = $FIC->findUniques($duplicates, $enough);
+            $this->displayImages($uniques);
+
+            echo "<H1>THIRD STEP</H1><BR><BR>";
+            $chunks = [];
+            foreach ($uniques as $unique){
+                $chunk = [$unique];
+                foreach ($duplicates as $index => $duplicate) {
+                    if($FIC->areSimilar($unique, $duplicate, $enough)){
+                        $chunk[] = $duplicate;
+                        unset($duplicates[$index]);
+                    }
+                }
+                if(empty(array_diff($chunk, $uniques))) continue; //todo это значит что в текущем чанке только уникальные элементы, неск штук, а значит это ошибка
+                $chunks[] = $chunk;
+            }
+
+            foreach($chunks as $index => $chunk){
+                echo "<H1>CHUNK $index</H1><BR><BR>";
+                $this->displayImages($chunk);
+            }
+//
+
+
+
+
+            exit('exit');
+
+            dd($res);
+
+
+            die;
+
+
+            $p = 'https://docs.google.com/feeds/download/documents/export/Export?id=19Sus07CDktMhvDwbgL3gSSgG11vHS645SvGvvvAuG8c&exportFormat=docx';
+
+            file_put_contents(storage_path('test/test.docx'), file_get_contents($p));
+            echo 'done';
+            die;
+
+
+//            $amoClientID = 31211566;
+//
+//            $amo = AmoCRMApiClient();
+
+
+
+
+            function getRandomIndex($data, $column = 'ver') {
+                $rand = mt_rand(1, array_sum(array_column($data, $column)));
+                $cur = $prev = 0;
+                for ($i = 0, $count = count($data); $i < $count; ++$i) {
+                    $prev += $i != 0 ? $data[$i-1][$column] : 0;
+                    $cur += $data[$i][$column];
+                    if ($rand > $prev && $rand <= $cur) {
+                        return $i;
+                    }
+                }
+                return -1;
+            }
+
+            $managers = [
+                ['user' => '60_9693102', 'percent' => 60], // вероятность 2/15
+                ['user' => '30_9727542', 'percent' => 30], // вероятность 0/15
+                ['user' => '10_9723414', 'percent' => 10], // вероятность 1/15
+            ];
+
+
+            $results = [];
+            for($iterator = 10; $iterator > 0; $iterator--){
+                $i = getRandomIndex($managers, 'percent');
+                $results[] = $managers[$i]['user'];
+            }
+
+            dd(array_count_values($results));
+
+            die;
+
+
+
+
+//            $queryString = http_build_query([
+//                'access_key' => '75c981dfa2032fbd0afaa88e08de2a17',
+//                'query' => '55.7564093,37.7049133',
+////                'query' => '48.2084,16.3731',
+//            ]);
+//
+//            $ch = curl_init(sprintf('%s?%s', 'http://api.positionstack.com/v1/reverse', $queryString));
+//            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+//
+//            $json = curl_exec($ch);
+//
+//            curl_close($ch);
+//
+//            echo $json;
+//            $apiResult = json_decode($json, true);
+
+
+
+
+            die;
+
+
+            $parsingCategory = DB::table('parsing_categories')->where('status', null)->first();
+            dd($parsingCategory);
+
+            $res = Posts::checkExistence([8029432,7981777,7981767,7981752,7981749,7855323,7842923,7819265,7780636,7628314,7471839,7460370,7411238,7400344,7371878,7362936,7348783,7296322,7053847,7053810,6926285,6925897,6922296,6922279,6920593,6705600,6703167,6662757,6635456,6620120,6595711,6579563,6543192,6527343,6518545,6499973,6485454,6449614,6438789,6399904,6375598,6340032]);
+            dd($res);
+
+//            $url =  'https://rule34.xxx/index.php?page=post&s=list&pid=0&tags=tang+-anthro+-furry+-femboy+-mud+-cuntboy+-cuntboy_only+-bara+-yaoi+-weight_gain+-tetra_ai+-tentacle+-plump+-girly+-gay+-gay_sex+-midna+-my_little_pony+-venus_body+-bbw+-intersex+-reptile+-overweight+-beaten+-pain+-torture+-transformation+-scat+-muddy+-covered_in_mud+-mud_bath+-feral+-cuntboy_penetrated+-1cuntboy+-dickgirl+-death+-blood+-fat+-fart+-male_only+-futanari+-futa_on_female+-1futa+-traditional_media_(artwork)+-bursting_breasts+-enormous_breasts+-gigantic_breasts+-hyper_breasts+-hyper+-shitting+-defecating+-pee+-peeing+-cgi+-pregnant_futa+-pregnant_sex+-pregnant+-pregnancy+-peeing_in_mouth+-peeing_self+-fur+-zoophilia';
+//            $url = 'https://rule34.xxx/index.php?page=post&s=view&id=7920779';
+//
+//            $h = [
+////                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+////                'Accept-Encoding: gzip, deflate, br',
+////                'Accept-Language: ru',
+////                'Cache-Control: no-cache',
+////                'Pragma: no-cache',
+////                'Cookie: webmad_tl=1686386800; __cf_bm=Pt4KRzFX168O.xjRJBZTmvAbDDff9JljDBUL4IbGi74-1686387253-0-AT/YoXhDLZPGYxax0veA8JpRiPLgK6aGS3KX7Mk5efyI4VigxmflPUFdjtG74yplhg==',
+////            'Connection: close',
+//                'User-Agent: Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+//            ];
+//            $context = stream_context_create(array(
+//                'http' => array(
+//                    'method' => 'GET',
+//                    'header' => $h,
+////                'ignore_errors' => true,
+//                ),
+//                'ssl' => array(
+//                    'verify_peer' => false,
+//                    'verify_peer_name' => false,
+//                    'method' => 'GET',
+//                    'header' => $h,
+////                'ignore_errors' => true,
+//                ),
+//            ));
+//
+//            echo file_get_contents($url, true, $context);
+//            die;
+
+//            $source = 'rule34';
+//            $category = 'combos-n-doodles';
+//
+//            $parserConfig = new ParserJobConfig($source, $category);
+//            $this->dispatch(new ParserJobNew($parserConfig));
+//            exit("$category from $source dispatched!");
+
+
+
+
+//            $api = new bbgClientApi("RepkoIV@ferrostroy.ru", "Evraz12345");
+
+//            $result = $api->call('tenderKeywords', [
+//                'keyword' => 'Строительство завода световозвращающих',
+//                'search_type' => 'exact',
+//                'search_list' => 'tender_all',
+////                'price_start' => '10000',
+////                'price_stop' => '12000',
+////                'regions' => ['москва'],
+////                'search_object' => ['title'],
+////                'tender_type' => 'all',
+//                'order_type' => 'create_date',
+//                'order_direction' => 'desc',
+//                'offset' => 0,
+//                'limit' => 50,
+//            ]);
+
+//$api->call('projects', [
+//    'years' => [2020],
+//    'start_years' => [2020],
+//    'order_direction' => 'desc',
+//    'offset' => 0,
+//    'limit' => 1,
+//]);
+//
+//            dd($result);
+
+
+
+//            $dataInput = file_get_contents('php://input');
+//            dd($dataInput);
+//
+//
+//            $path = storage_path() . '/1.pdf';
+//            echo filesize($path) . '<br>';
+//            $path = storage_path() . '/2.pdf';
+//            echo filesize($path). '<br>';
+//            $path = storage_path() . '/3.pdf';
+//            echo filesize($path). '<br>';
+            die;
+
+
+//            $path = public_path('img/1/sample_14d7c115818aebb9a5f9896b7257e7f3.jpg');
+////            dd(Helper::clearDirPath($path));
+//            $img = new Imagick($path);
+//            $img->setImageProperty('test', 'value');
+//            $img->writeImage($path);
+//            $img2 = new Imagick($path);
+//            $res = $img2->getImageProperties();
+//            dd($res);
+//
+//            $p = new Phar($path);
+//
+//            dd($p);
+
+
+
+
+        } catch (Throwable $e){
+            echo $e->getMessage() . ' at line ' . $e->getLine() . ' at file ' . $e->getFile();
+        }
+
+
+
+
+
+
+
+//        echo gettype($page);
+
+
+
+
         die;
         $query = <<<QUERY
 select

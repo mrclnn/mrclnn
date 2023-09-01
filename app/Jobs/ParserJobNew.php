@@ -53,52 +53,57 @@ class ParserJobNew implements ShouldQueue
             'filter' => $this->config->filter
         ]);
 
-        $this->config->processPagination($categoryParsingData['pagination']);
-        $this->config->processContent($categoryParsingData['posts']);
+        try{
+
+            $this->config->processPagination($categoryParsingData['pagination']);
+            $this->config->processContent($categoryParsingData['posts']);
 
 
+            $lastPage = $this->config->lastPage;
+            $currentPage = $this->config->iteration + 1;
+            $category = $this->config->category;
+            $this->logger->info("Start parsing $category, page $currentPage/$lastPage...");
+            $restCount = count($this->config->needleIds);
+            $existedCount = count($categoryParsingData['posts']) - $restCount;
+            $this->logger->info("$existedCount posts already parsed, $restCount to go...");
 
+            //todo success count добавить сюда + запись в логи после парсинга всех постов
+            foreach($this->config->needleIds as $i => $id){
+                sleep(2);
+                $postParser = ParserAggregator::getParser('post');
+                if(!$postParser){
+                    $this->logger->error("Received invalid Parser for request word 'post', check config. End work.");
+                    return;
+                }
+                $postParsingData = $postParser->parse(['postId' => (int)$id]);
+                $img = (new GalleryImage())->fillFromHtmlDocument($postParsingData);
+                if(!$img){
+                    $this->logger->error("Skip post $id: Received null GalleryImage instance, invalid postParsingData.");
+                    continue;
+                }
+                //todo эта проверка уже избыточна, потому что в конфиге мы готовим список id постов которых нет
+                if($img->isExist()){
+                    $this->logger->info("Skip post $id: Already exist.");
+                    continue;
+                }
+                try{
+                    $success = $img->save()->writeToDB();
+                    if($success){
+                        $this->logger->info("post $id parsed successfully.");
+                    } else {
+                        //todo нужна дополнительная информация о неудаче
+                        $this->logger->info("Unable to parse $id");
+                    }
 
-        $lastPage = $this->config->lastPage;
-        $currentPage = $this->config->iteration + 1;
-        $category = $this->config->category;
-        $this->logger->info("Start parsing $category, page $currentPage/$lastPage...");
-        $restCount = count($this->config->needleIds);
-        $existedCount = count($categoryParsingData['posts']) - $restCount;
-        $this->logger->info("$existedCount posts already parsed, $restCount to go...");
-
-        //todo success count добавить сюда + запись в логи после парсинга всех постов
-        foreach($this->config->needleIds as $i => $id){
-            sleep(2);
-            $postParser = ParserAggregator::getParser('post');
-            if(!$postParser){
-                $this->logger->error("Received invalid Parser for request word 'post', check config. End work.");
-                return;
-            }
-            $postParsingData = $postParser->parse(['postId' => (int)$id]);
-            $img = (new GalleryImage())->fillFromHtmlDocument($postParsingData);
-            if(!$img){
-                $this->logger->error("Skip post $id: Received null GalleryImage instance, invalid postParsingData.");
-                continue;
-            }
-            //todo эта проверка уже избыточна, потому что в конфиге мы готовим список id постов которых нет
-            if($img->isExist()){
-                $this->logger->info("Skip post $id: Already exist.");
-                continue;
-            }
-            try{
-                $success = $img->save()->writeToDB();
-                if($success){
-                    $this->logger->info("post $id parsed successfully.");
-                } else {
-                    //todo нужна дополнительная информация о неудаче
-                    $this->logger->info("Unable to parse $id");
+                } catch (Throwable $e){
+                    $this->processError($e);
                 }
 
-            } catch (Throwable $e){
-                $this->processError($e);
             }
 
+        } catch (\Throwable $e){
+            $this->logger->error("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+            exit;
         }
 
         $this->config->prepareNextIteration();

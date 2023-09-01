@@ -2,6 +2,7 @@
 
 namespace App\Console;
 
+use App\Helper;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -24,9 +25,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        $schedule->command('queue:work --queue=high,low --tries=3')
-            ->everyMinute()
-            ->withoutOverlapping();
+        try{
+            $schedule->command('gallery:parse')->name('gallery_parser')->withoutOverlapping();
+        } catch (\Throwable $e){
+            Helper::log("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+        }
     }
 
     /**

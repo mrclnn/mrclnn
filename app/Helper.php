@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\Model;
 class Helper
 {
 
+    public static function log(string $message, $context = []) : void
+    {
+        (new self)->sendToTG($message);
+    }
     public static function getFieldFromModel(Collection $models, string $field): array
     {
         return $models->map(function (Model $model) use ($field) {
