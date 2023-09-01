@@ -18,6 +18,8 @@ try{
     <script src="{{url('/js/duplicates.js')}}"></script>
 </head>
 <body>
+<h1>{{$tag}}</h1>
+
 <input type="button" value="send" id="send-duplicates">
 @foreach($characters as $characterName => $posts)
     <div class="container">
@@ -31,7 +33,8 @@ try{
         @endforeach
     </div>
 @endforeach
-<h1>all:</h1>
+
+<button id="approve">approve cleared and go next</button>
 {{--@foreach($env['all'] as $post)--}}
 {{--    <img src="/img/{{$post->file_name}}" alt="" width="200px">--}}
 {{--@endforeach--}}

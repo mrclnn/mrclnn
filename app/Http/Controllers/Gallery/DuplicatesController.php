@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Gallery;
 
 use App\Http\Controllers\Controller;
 use App\Models\Categories;
+use App\Parser;
 use App\Services\ImageHash;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -16,21 +17,26 @@ class DuplicatesController extends Controller
         // получить список авторов
         // разделить все работы автора на персонажей
         try{
-            $posts = Categories::getFromTag('leukocrisp')->getAllPosts();
+            $categoryToClear = DB::table('parsing_categories')->where('status', Parser::STATUS_LOADED)->first();
+            if(!$categoryToClear) exit('nothing to clear');
+
+            $posts = Categories::getFromTag(trim($categoryToClear->tag))->getAllPosts();
+//            dd($posts[0]->getTagsList());
+//            dd($posts);
             $characters = [];
             while($post = $posts->pop()){
-                foreach($post->getTags() as $tag){
-                    if($tag->type !== 'character') continue;
-                    if(!isset($characters[$tag->tag])) $characters[$tag->tag] = [];
-                    $characters[$tag->tag][] = $post;
+
+                foreach($charactersList = $post->getTagsList()['character'] ?? [] as $character){
+                    if(!isset($characters[$character])) $characters[$character] = [];
+                    $characters[$character][] = $post;
                     break;
                 }
-            };
+            }
             $characters = array_filter($characters, function($character){
                 return (count($character) > 1);
             });
 
-            return view('duplicates', ['characters' => $characters]);
+            return view('duplicates', ['characters' => $characters, 'tag' => trim($categoryToClear->tag)]);
 
         } catch (Throwable $e){
             dd($e);

@@ -19,6 +19,9 @@ let app = {
         })
         let sendButton = document.querySelector('#send-duplicates');
         sendButton.addEventListener('click', app.sendDuplicates);
+
+        let approveButton = document.querySelector('#approve');
+        approveButton.addEventListener('click', app.approveCleared);
     },
     processImg : function(img){
         img.classList.toggle('duplicate');
@@ -33,7 +36,14 @@ let app = {
 
         console.log(duplicatesID);
 
-        app.sendRequest('/ajax', {duplicates : duplicatesID}, function(answer){
+        app.sendRequest('/gallery/reject-duplicates', {duplicates : duplicatesID}, function(answer){
+            console.log(answer);
+            location.reload();
+        });
+    },
+    approveCleared : function(){
+        let tag = document.querySelector('h1').innerText;
+        app.sendRequest('/gallery/approve-duplicates', {tag : tag}, function(answer){
             console.log(answer);
             location.reload();
         });
