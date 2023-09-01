@@ -11,8 +11,8 @@ class GenshinAccessController
     public function exec(){
         try{
             $hostname = '{imap.gmail.com:993/imap/ssl}INBOX';
-            $username = 'borya.lalka2@gmail.com';
-            $password = 'a375292961882';
+            $username = env('genshin_gmail_address');
+            $password = env('genshin_gmail_password');
 
             /* try to connect */
             $inbox = imap_open($hostname,$username,$password) or die('Cannot connect to Gmail: ' . imap_last_error());

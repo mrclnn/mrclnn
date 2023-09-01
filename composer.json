@@ -21,8 +21,7 @@
         "phpoffice/phpspreadsheet": "^1.18",
         "simplehtmldom/simplehtmldom": "dev-master",
         "wapmorgan/morphos": "^3.2",
-        "yncki/php-fast-image-compare": "^1.0",
-        "ext-http": "*"
+        "yncki/php-fast-image-compare": "^1.0"
     },
     "require-dev": {
         "fzaninotto/faker": "~1.4",
