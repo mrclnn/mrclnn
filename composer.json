@@ -5,19 +5,24 @@
     "license": "MIT",
     "type": "project",
     "require": {
-        "php": "^7.4.1",
+        "php": "^7.3||^8.0",
         "ext-curl": "*",
         "ext-gd": "*",
+        "ext-imagick": "*",
         "ext-imap": "*",
         "ext-json": "*",
         "ext-mysqli": "*",
+        "amocrm/amocrm-api-library": "^0.5.2",
+        "aspose-cloud/aspose-words-cloud": "^23.7",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "5.5.*",
         "laravel/tinker": "~1.0",
         "leonied7/yandex-disk-api": "dev-master",
         "phpoffice/phpspreadsheet": "^1.18",
         "simplehtmldom/simplehtmldom": "dev-master",
-        "wapmorgan/morphos": "^3.2"
+        "wapmorgan/morphos": "^3.2",
+        "yncki/php-fast-image-compare": "^1.0",
+        "ext-http": "*"
     },
     "require-dev": {
         "fzaninotto/faker": "~1.4",
