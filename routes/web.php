@@ -19,7 +19,7 @@ Route::group(['namespace' => 'Gallery'], function(){
     Route::get('/gallery', 'GalleryMainController@execute');
     Route::get('/gallery/view', 'GalleryViewerController@execute');
     Route::get('/gallery/config', 'GalleryConfigController@execute');
-    Route::get('/duplicates', 'DuplicatesController@execute');
+    Route::get('/gallery/duplicates', 'DuplicatesController@execute');
 
     Route::post('/ajax', 'AjaxController@execute');
 
@@ -33,6 +33,8 @@ Route::group(['namespace' => 'Gallery'], function(){
     Route::post('/gallery/update-category', 'AjaxController@updateCategory');
     Route::post('/gallery/add-category', 'AjaxController@addCategory');
     Route::post('/gallery/check-category-count', 'AjaxController@checkCategoryCount');
+    Route::post('/gallery/reject-duplicates', 'AjaxController@rejectDuplicates');
+    Route::post('/gallery/approve-duplicates', 'AjaxController@approveDuplicates');
 
     Route::post('/gallery/search-tag', 'AjaxController@searchTag');
 
@@ -41,6 +43,11 @@ Route::group(['namespace' => 'Gallery'], function(){
 
     Route::post('/gallery/search', 'AjaxController@search');
     Route::post('/gallery/load', 'AjaxController@load');
+});
+Route::group(['namespace' => 'Utility'], function(){
+
+    Route::get('/utility/json-to-class', 'MainController@jsonToClass');
+
 });
 
 Route::get('/', 'MainController@execute');

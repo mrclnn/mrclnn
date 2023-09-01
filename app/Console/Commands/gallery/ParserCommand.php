@@ -5,8 +5,10 @@ namespace App\Console\Commands\gallery;
 use App\GalleryImage;
 use App\Jobs\ParserJobConfig;
 use App\Models\Categories;
+use App\Parser;
 use App\ParserAggregator;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
@@ -14,7 +16,7 @@ use Monolog\Processor\PsrLogMessageProcessor;
 use Psr\Log\LoggerAwareTrait;
 use Throwable;
 
-class parser extends Command
+class ParserCommand extends Command
 {
     use LoggerAwareTrait;
     /**
@@ -22,7 +24,7 @@ class parser extends Command
      *
      * @var string
      */
-    protected $signature = 'gallery:parse {category}';
+    protected $signature = 'gallery:parse {source=null} {category=null}';
 
     /**
      * The console command description.
@@ -39,6 +41,7 @@ class parser extends Command
     public function __construct()
     {
         $this->setLogger();
+        date_default_timezone_set('Europe/Moscow');
         parent::__construct();
     }
 
@@ -47,13 +50,48 @@ class parser extends Command
      *
      * @return mixed
      */
-    public function handle()
+    public function handle(): void
+    {
+
+//        $this->logger->info('test here');
+//        sleep(24 * 60 * 60);
+//        return;
+
+//        echo "this is gallery parser\n";
+        $category = $this->argument('category');
+        $source = $this->argument('source');
+        //todo это бред
+        if($source === 'null' && $category === 'null'){
+
+            while($parsingCategory = DB::table('parsing_categories')->where('status', null)->orWhere('status', Parser::STATUS_BUSY)->first()){
+
+                DB::table('parsing_categories')->where('id', $parsingCategory->id)->update([
+                    'status' => Parser::STATUS_BUSY,
+                    'updated_at' => now(),
+                ]);
+
+                echo "Received from standart parsing queue category: $parsingCategory->tag, source: $parsingCategory->source\n";
+                $this->process($parsingCategory->source, $parsingCategory->tag);
+
+                DB::table('parsing_categories')->where('id', $parsingCategory->id)->update([
+                    'status' => Parser::STATUS_LOADED,
+                    'updated_at' => now(),
+                ]);
+
+            }
+
+
+        } else {
+            echo "Received from parameters category: $category, source: $source\n";
+            $this->process($source, $category);
+        }
+    }
+
+    private function process(string $source, string $category)
     {
         try{
-            echo "this is gallery parser\n";
-            $category = $this->argument('category');
 
-            $parserConfig = new ParserJobConfig('rule34', $category);
+            $parserConfig = new ParserJobConfig($source, $category);
 
             do{
                 sleep(2);
@@ -64,11 +102,23 @@ class parser extends Command
                     return;
                 }
 
-                $categoryParsingData = $categoryParser->parse([
-                    'pid' => $parserConfig->pid,
-                    'tag' => $parserConfig->category,
-                    'filter' => $parserConfig->filter
-                ]);
+                do{
+                    $categoryParsingData = $categoryParser->parse([
+                        'pid' => $parserConfig->pid,
+                        'tag' => $parserConfig->category,
+                        'filter' => $parserConfig->filter
+                    ]);
+
+                    if(!$categoryParsingData){
+                        $delay = 3 * 60; //5 min
+                        echo 'sleep '.($delay/60)." min\n";
+                        for($minutesRest = $delay / 60; $minutesRest > 0; $minutesRest--){
+                            echo "next try in $minutesRest minutes...\n";
+                            sleep($delay / ( $delay/60));
+                        }
+                    }
+
+                }while(!$categoryParsingData);
 
                 $parserConfig->processPagination($categoryParsingData['pagination']);
                 $parserConfig->processContent($categoryParsingData['posts']);
@@ -93,7 +143,21 @@ class parser extends Command
                         echo "Received invalid Parser for request word 'post', check config. End work.\n";
                         return;
                     }
-                    $postParsingData = $postParser->parse(['postId' => (int)$id]);
+                    do{
+                        $postParsingData = $postParser->parse(['postId' => (int)$id]);
+                        if(!$postParsingData){
+                            echo "403 for $id, waiting...\n";
+                            $delay = 3 * 60; //5 min
+                            echo 'sleep '.($delay/60)." min\n";
+                            for($minutesRest = $delay / 60; $minutesRest > 0; $minutesRest--){
+                                echo "next try in $minutesRest minutes...\n";
+                                sleep($delay / ( $delay/60));
+                            }
+                        }
+                    } while(!$postParsingData);
+
+//                    $this->logger->debug(json_encode($postParsingData));
+
                     $img = (new GalleryImage())->fillFromHtmlDocument($postParsingData);
                     if(!$img){
                         $this->logger->error("Skip post $id: Received null GalleryImage instance, invalid postParsingData.");
@@ -153,7 +217,6 @@ class parser extends Command
         } catch (\Throwable $e){
             echo "{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}\n";
         }
-
     }
 
     private function setLogger(){

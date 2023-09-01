@@ -88,9 +88,9 @@ class Posts extends Model
     public static function checkExistence(array $idList): array
     {
         if (empty($idList)) return [];
-        $existedPostID = Posts::query()->whereIn('id', $idList)->get(['id']);
+        $existedPostID = Posts::query()->whereIn('post_id', $idList)->get(['post_id']);
         return $existedPostID->map(function ($post) {
-            return $post->id;
+            return $post->post_id;
         })->toArray();
 
     }

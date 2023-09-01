@@ -19,3 +19,19 @@
 img{
     /*pointer-events: none;*/
 }
+#approve{
+    margin-top: 50px;
+    padding: 20px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+}
+#approve:hover{
+    background-color: #ddd;
+}
+#approve:active{
+    background-color: #ccc;
+}
+h1{
+    margin-bottom: 50px;
+}

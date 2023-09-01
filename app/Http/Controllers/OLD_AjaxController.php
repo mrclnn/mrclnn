@@ -24,7 +24,7 @@ use Psr\Log\LoggerAwareTrait;
 use simplehtmldom\HtmlWeb;
 use Throwable;
 
-class AjaxController extends Controller
+class OLD_AjaxController extends Controller
 {
     use LoggerAwareTrait;
     private array $request = [];
@@ -75,47 +75,47 @@ class AjaxController extends Controller
 
         return [];
     }
-    private function getQuery() : array
-    {
-        // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
-        // в качестве дефолтного значения можно оставить 1 для квадратных изображений
-        $screen = (float)$this->request['screen'] ?? 1;
-        $requestedCategory = (string)$this->request['category'];
-
-        //todo нормализовать возвращаемые значения. например CategoryAggregator::getFromName возвращает null если не найдено
-        // в то время как TagAggregator::getFromName будет выбрасывать исключение
-        $category = Categories::getFromName($requestedCategory) ?? Categories::getFromTag($requestedCategory);
-
-        // если нет категории то возможно запросили просто тэг
-        if(!$category || !$category->enabled){
-            $this->logger->info("requested category $requestedCategory not found or disabled");
-            return [];
-        }
-
-        $this->logger->info("requested category $requestedCategory found in list of enabled");
-        $answer = [
-            'info' => [
-                'count' => $category->count
-            ]
-        ];
-        //todo это клиент нам должен говорить сколько постов необходимо получить
-        $posts = $category->getPostsForSlider(40, $screen);
-
-        $answer['posts'] = $posts->map(function($post){
-            return [
-                'id' => $post->id,
-                'file_name' => $post->file_name,
-                'shown' => false,
-                'status' => $post->status,
-                'width' => $post->width,
-                'height' => $post->height,
-                'tags' => $post->getTagsList(),
-            ];
-        })->toArray();
-
-        return $answer;
-
-    }
+//    private function getQuery() : array
+//    {
+//        // screen - это float соотношение сторон экрана у запросившего устройства. обычно от 0.4 до 1.8
+//        // в качестве дефолтного значения можно оставить 1 для квадратных изображений
+//        $screen = (float)$this->request['screen'] ?? 1;
+//        $requestedCategory = (string)$this->request['category'];
+//
+//        //todo нормализовать возвращаемые значения. например CategoryAggregator::getFromName возвращает null если не найдено
+//        // в то время как TagAggregator::getFromName будет выбрасывать исключение
+//        $category = Categories::getFromName($requestedCategory) ?? Categories::getFromTag($requestedCategory);
+//
+//        // если нет категории то возможно запросили просто тэг
+//        if(!$category || !$category->enabled){
+//            $this->logger->info("requested category $requestedCategory not found or disabled");
+//            return [];
+//        }
+//
+//        $this->logger->info("requested category $requestedCategory found in list of enabled");
+//        $answer = [
+//            'info' => [
+//                'count' => $category->count
+//            ]
+//        ];
+//        //todo это клиент нам должен говорить сколько постов необходимо получить
+//        $posts = $category->getPostsForSlider(40, $screen);
+//
+//        $answer['posts'] = $posts->map(function($post){
+//            return [
+//                'id' => $post->id,
+//                'file_name' => $post->file_name,
+//                'shown' => false,
+//                'status' => $post->status,
+//                'width' => $post->width,
+//                'height' => $post->height,
+//                'tags' => $post->getTagsList(),
+//            ];
+//        })->toArray();
+//
+//        return $answer;
+//
+//    }
     private function searchTagQuery() : array
     {
         $searchWord = (string)$this->request['searchTag'];

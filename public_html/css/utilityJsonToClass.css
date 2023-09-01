@@ -1,0 +1,14 @@
+#json{
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 50%;
+    resize: none;
+}
+#class{
+    top: 50%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    resize: none;
+}

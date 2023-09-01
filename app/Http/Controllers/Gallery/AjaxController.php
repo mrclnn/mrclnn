@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ParserJob;
 use App\Models\Categories;
 use App\Models\Posts;
+use App\Parser;
 use App\Services\NotaloneService;
 use DateTime;
 use DateTimeZone;
@@ -276,6 +277,39 @@ class AjaxController extends Controller
             ],
         ]);
     }
+    public function rejectDuplicates(Request $request) : JsonResponse
+    {
+
+        try{
+            $affected = Posts::setDuplicates($request->input('duplicates'));
+            return response()->json([
+                'affected' => $affected,
+            ]);
+        } catch (\Throwable $e){
+            return response()->json([
+                'error' => "{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}",
+            ]);
+        }
+
+    }
+
+    public function approveDuplicates(Request $request) : JsonResponse
+    {
+
+        try{
+            DB::table('parsing_categories')->where('tag', $request->input('tag'))->update(
+                ['status' => Parser::STATUS_CLEARED]
+            );
+            return response()->json([
+                'success' => true,
+            ]);
+        } catch (\Throwable $e){
+            return response()->json([
+                'error' => "{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}",
+            ]);
+        }
+
+    }
 
 
 
@@ -322,68 +356,7 @@ class AjaxController extends Controller
 
 
 
-    private function duplicatesQuery() : array
-    {
 
-        $affected = Posts::setDuplicates($this->request['duplicates']);
-        return [$affected];
-//        $all_posts = [];
-//        $category_name = '';
-//        $category_id = 0;
-//        while($all_posts === []){
-//            $category = DB::select('SELECT id, name FROM categories hc WHERE hc.rank = 0 and hc.type = 1 ORDER BY id LIMIT 1');
-//            $category_id = $category[0]->id;
-//            $category_name = $category[0]->name;
-//            $all_posts = DB::select(' AND hp.category_id = ?
-//ORDER BY tags_character DESC, hash
-//        \'', [$category_id]);
-//
-//            if($all_posts === []){
-//                $affected = DB::table('categories')->where('id', $category_id)->update(['rank' => 9]);
-//            }
-//        }
-//        $characters = [];
-//        $ih = new ImageHash();
-//        foreach ($all_posts as $post){
-//            if(!isset($characters[$post->tags_character])) $characters[$post->tags_character] = [];
-//            $characters[$post->tags_character][] = [
-//                'file' => $post->file_name,
-//                'hash' => $ih->createHashFromFile(public_path('/img/'.$post->file_name), 15, 6, true),
-////                'hash' => $post->hash,
-//                'id' => $post->id
-//            ];
-//        }
-//
-//        $duplicates = [];
-//        $limit = 0;
-//        $processed = [];
-//        $progress = 0;
-//        foreach ($characters as $charTag => $char){
-//            $limit++;
-//            $progress++;
-//            if($limit > 60) break;
-//            foreach ($char as $post){
-//                if(in_array($post['id'], $processed)) continue;
-//                $processed[] = $post['id'];
-//                $dupl = [$post['id'] => ['src' => $post['file']]];
-//                foreach ($char as $_post){
-//                    if(in_array($_post['id'], $processed)) continue;
-//                    if($ih->compareImageHashes($post['hash'], $_post['hash'], 0.15)){
-//                        $dupl[$_post['id']] = ['src' => $_post['file']];
-//                        $processed[] = $_post['id'];
-//                    }
-//                }
-//                if(count($dupl) > 1) $duplicates[] = $dupl;
-//            }
-//        }
-//        if($duplicates === []){
-//            $affected = DB::table('categories')->where('id', $category_id)->update(['rank' => 9]);
-//            return $this->duplicatesQuery();
-//        }
-////        return ['success' => true, 'blabla' => 'here'];
-////        $this->eventStreamMessage('end');
-//        return ['success' => true, 'env' => ['tag_name' => $category_name, 'tag_id' =>$category_id, 'dupl' => $duplicates]];
-    }
     private function getArtistCount(string $tag) : ?int
     {
         $url_tag = str_replace(['+', '\''],['%2b', '&#039;'], $tag);
