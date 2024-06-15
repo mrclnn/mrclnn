@@ -16,6 +16,11 @@
             box-sizing: border-box;
         }
 
+        body{
+            background-color: #222;
+            color: #bbb;
+        }
+
         .centered {
             height: 100vh;
             display: flex;

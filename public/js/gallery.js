@@ -730,7 +730,7 @@ class Pic {
         this.tags_meta = params.tags.metadata ?? [''];
         this.tags_general = params.tags.general ?? [''];
         this.shown = params.shown;
-        this.src = '/img/' + params.file_name;
+        this.src = '/gallery/post/' + params.post_id;
         this.fav = params.status === 2;
         this.w = params.width;
         this.h = params.height;

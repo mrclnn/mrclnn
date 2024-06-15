@@ -1,9 +1,9 @@
 Options All -Indexes
 #order deny,allow
 #deny from all
-
-#place to allow ip#
-
+#
+##place to allow ip#
+#
 #<FilesMatch "^access\.php$">
 #allow from all
 #</FilesMatch>

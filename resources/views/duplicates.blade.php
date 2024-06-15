@@ -26,7 +26,7 @@ try{
         <h4>{{$characterName}}:</h4>
         @foreach($posts as $post)
             <img
-                src="/img/{{$post->file_name}}"
+                src="/gallery/post/{{$post->post_id}}"
                 alt="{{$post->id}}"
                 width="{{$post->height/$post->width > 1 ? '16%' : '32%'}}"
             >
