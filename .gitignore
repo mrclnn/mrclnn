@@ -12,3 +12,4 @@ yarn-error.log
 .env
 /public/img/
 /storage/backup/
+/storage/credit/
