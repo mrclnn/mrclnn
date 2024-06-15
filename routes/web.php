@@ -12,9 +12,12 @@
 */
 
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::group(['namespace' => 'Gallery'], function(){
+
+    Route::get('/gallery/post/{id}', 'GalleryPostController@get');
 
     Route::get('/gallery', 'GalleryMainController@execute');
     Route::get('/gallery/view', 'GalleryViewerController@execute');
@@ -49,8 +52,23 @@ Route::group(['namespace' => 'Utility'], function(){
     Route::get('/utility/json-to-class', 'MainController@jsonToClass');
 
 });
+Route::group(['namespace' => 'Telegram'], function(){
+
+    Route::any('/tg/hook', 'Webhook@execute');
+    Route::any('/tg/hookNew', 'WebhookNew@exec');
+
+});
+
+Route::group(['namespace' => 'Discord'], function(){
+
+    Route::any('/discord/redirect', 'Webhook@execute');
+
+});
 
 Route::get('/', 'MainController@execute');
+
+Route::any('/google/auth', 'GoogleApiController@execute');
+Route::any('/dbg', 'dbg@execute');
 
 
 Route::get('/filmlist', 'FilmListConroller@exec');
@@ -61,6 +79,7 @@ Route::get('/portfolio', 'PortfolioController@execute');
 
 
 Route::get('/log', 'LogController@execute');
+Route::get('/api-long-execute', 'TestController@longProcess');
 
 
 //Route::get('/img/sb-admin-2/{path?}', function () {
@@ -80,7 +99,7 @@ Route::get('/log', 'LogController@execute');
 
 
 //Route::get('/products', 'MainController@execute');
-//Route::get('/test', 'TestController@execute');
+Route::any('/test', 'TestController@execute');
 //Route::get('/classifier', 'ClassifierController@execute');
 //Route::get('/classifierEngine', 'ClassifierEngineController@execute');
 //Route::get('/gallery/parser', 'GalleryParserController@execute');
@@ -88,3 +107,6 @@ Route::get('/log', 'LogController@execute');
 //Route::get('/calls', 'CallsController@execute');
 //Route::get('/500', )
 //Route::get('/monitor', 'MonitorController@execute');
+Auth::routes();
+
+Route::get('/home', 'HomeController@index')->name('home');
