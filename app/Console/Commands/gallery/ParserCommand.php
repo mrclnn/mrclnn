@@ -40,8 +40,6 @@ class ParserCommand extends Command
      */
     public function __construct()
     {
-        $this->setLogger();
-        date_default_timezone_set('Europe/Moscow');
         parent::__construct();
     }
 
@@ -52,39 +50,48 @@ class ParserCommand extends Command
      */
     public function handle(): void
     {
+        $this->setLogger();
+        date_default_timezone_set('Europe/Moscow');
 
-//        $this->logger->info('test here');
-//        sleep(24 * 60 * 60);
-//        return;
+        try{
 
-//        echo "this is gallery parser\n";
-        $category = $this->argument('category');
-        $source = $this->argument('source');
-        //todo это бред
-        if($source === 'null' && $category === 'null'){
+            $category = $this->argument('category');
+            $source = $this->argument('source');
+            //todo это бред
+            if($source === 'null' && $category === 'null'){
 
-            while($parsingCategory = DB::table('parsing_categories')->where('status', null)->orWhere('status', Parser::STATUS_BUSY)->first()){
+                echo 'here';
 
-                DB::table('parsing_categories')->where('id', $parsingCategory->id)->update([
-                    'status' => Parser::STATUS_BUSY,
-                    'updated_at' => now(),
-                ]);
+                while($parsingCategory = DB::table('parsing_categories')->where('status', null)->orWhere('status', Parser::STATUS_BUSY)->first()){
 
-                echo "Received from standart parsing queue category: $parsingCategory->tag, source: $parsingCategory->source\n";
-                $this->process($parsingCategory->source, $parsingCategory->tag);
+                    DB::table('parsing_categories')->where('id', $parsingCategory->id)->update([
+                        'status' => Parser::STATUS_BUSY,
+                        'updated_at' => now(),
+                    ]);
 
-                DB::table('parsing_categories')->where('id', $parsingCategory->id)->update([
-                    'status' => Parser::STATUS_LOADED,
-                    'updated_at' => now(),
-                ]);
+                    echo "Received from standart parsing queue category: $parsingCategory->tag, source: $parsingCategory->source\n";
+                    $this->process($parsingCategory->source, $parsingCategory->tag);
 
+                    DB::table('parsing_categories')->where('id', $parsingCategory->id)->update([
+                        'status' => Parser::STATUS_LOADED,
+                        'updated_at' => now(),
+                        'uploaded_at' => now(),
+                    ]);
+
+                }
+
+
+            } else {
+                echo "Received from parameters category: $category, source: $source\n";
+                $this->process($source, $category);
             }
 
+        } catch (\Throwable $e){
 
-        } else {
-            echo "Received from parameters category: $category, source: $source\n";
-            $this->process($source, $category);
+            $this->logger->error("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+
         }
+
     }
 
     private function process(string $source, string $category)
@@ -93,7 +100,12 @@ class ParserCommand extends Command
 
             $parserConfig = new ParserJobConfig($source, $category);
 
+            $alreadyParsedIndex = 0;
             do{
+                if($alreadyParsedIndex > 2){
+                    $this->logger->info("Already parsed pages limit $alreadyParsedIndex reached, exit");
+                    break;
+                }
                 sleep(2);
                 $categoryParser = ParserAggregator::getParser('category');
                 if(!$categoryParser){
@@ -131,6 +143,7 @@ class ParserCommand extends Command
 
                 $restCount = count($parserConfig->needleIds);
                 $existedCount = count($categoryParsingData['posts']) - $restCount;
+                if($existedCount === $restCount) $alreadyParsedIndex++;
                 $this->logger->info("$existedCount posts already parsed, $restCount to go...");
                 echo "$existedCount posts already parsed, $restCount to go...\n";
 
@@ -215,7 +228,7 @@ class ParserCommand extends Command
 
 
         } catch (\Throwable $e){
-            echo "{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}\n";
+            $this->logger->error("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
         }
     }
 

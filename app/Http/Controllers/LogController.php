@@ -34,23 +34,19 @@ class LogController extends Controller
         return new Response('ok', 200);
     }
 
-    private function sendMessage(string $text){
-        // Токен бота и идентификатор чата
-        // TODO вынести всю конфиденциальную инфо в более защищенные места
-        $token='1870702904:AAFEsvY_Gy0E6lSrJTR3exGv2xWRJkyAZjQ';
-        $chat_id='438500729';
+    public function sendMessage(string $text){
 
 
 // Отправить сообщение
         $ch=curl_init();
         curl_setopt($ch, CURLOPT_URL,
-                    'https://api.telegram.org/bot'.$token.'/sendMessage');
+                    'https://api.telegram.org/bot'.env('TELEGRAM_API_KEY_HENTAI').'/sendMessage');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_HEADER, false);
 //        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS,
-                    'chat_id='.$chat_id.'&text='.urlencode($text));
+                    'chat_id='.env('TELEGRAM_MAIN_CHAT_ID').'&text='.urlencode($text));
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 
 //// Настройки прокси, если это необходимо

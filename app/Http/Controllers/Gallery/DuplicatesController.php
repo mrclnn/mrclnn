@@ -13,6 +13,11 @@ use Throwable;
 
 class DuplicatesController extends Controller
 {
+
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
     public function execute(){
         // получить список авторов
         // разделить все работы автора на персонажей

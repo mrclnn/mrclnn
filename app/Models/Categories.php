@@ -47,6 +47,7 @@ class Categories extends Model
     }
     public static function getFromName(string $name): ?Categories
     {
+        if(empty($name)) return null;
         $category = self::query()->where('name', '=', $name)->first();
         if($category instanceof Categories) return $category;
         return null;
@@ -62,6 +63,13 @@ class Categories extends Model
             ->setName($tag->tag)
             ->setIncludeTags([$tag])
             ->reCount();
+    }
+
+    public static function getFromSearchTag(string $search): ?Categories
+    {
+        $tag = Tags::getFromNameSearch($search);
+        if(!$tag) return null;
+        return self::getFromTag($tag->tag ?? '');
     }
     public static function getFakeCategory(): Categories
     {
@@ -177,6 +185,7 @@ class Categories extends Model
             ->where('shown', 0)
             ->select([
                 'id',
+                'post_id',
                 'file_name',
                 'status',
                 'width',
@@ -284,15 +293,12 @@ class Categories extends Model
             case 'exceptionStatus':
                 $this->setExceptionStatus($value);
                 break;
-            case 'extend_tags':
             case 'extendTags':
                 $this->setExtendTags($value);
                 break;
-            case 'exclude_tags':
             case 'excludeTags':
                 $this->setExcludeTags($value);
                 break;
-            case 'include_tags':
             case 'includeTags':
                 $this->setIncludeTags($value);
                 break;

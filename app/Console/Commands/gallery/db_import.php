@@ -43,9 +43,9 @@ class db_import extends Command
 
         //todo здесь должна быть защита от того чтобы не вставить в таблицу в которой уже есть какие-то данные
         $tables = [
-            'posts',
-            'tags',
-            'categories',
+//            'posts',
+//            'tags',
+//            'categories',
             'posts_tags'
         ];
 

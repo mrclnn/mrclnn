@@ -30,8 +30,11 @@ use App\Product_types;
 use App\Services\bbgClientApi;
 use DateTime;
 use DateTimeZone;
+use FORMAT;
 use Generator;
-use GuzzleHttp\Client;
+use Google\Client;
+use Google\Service\Drive;
+use Google\Task\Composer;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Handler\CurlHandler;
@@ -41,12 +44,15 @@ use Illuminate\Cache\Events\CacheEvent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Services\ImageHash;
+use Illuminate\View\View;
 use Imagick;
 use InvalidArgumentException;
 use Leonied7\Yandex\Disk;
 use LogicException;
+use mikehaertl\wkhtmlto\Pdf;
 use Monolog\Handler\PsrHandler;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Logger;
@@ -78,10 +84,15 @@ class MainController extends Controller
     private $offset = 0;
     private $doc;
 
+    public function __construct()
+    {
+//        $this->middleware('auth');
+    }
+
     private function displayImages(array $res)
     {
         $img = array_map(function($path){
-            return str_replace('D:\pr\OSPanel\domains\mrclnn\public_html\\', '', "<img style='width: 20%' src='$path'>");
+            return str_replace('D:\pr\OSPanel\domains\mrclnn\public\\', '', "<img style='width: 20%' src='$path'>");
         }, $res);
         echo implode('', $img);
     }
@@ -91,10 +102,42 @@ class MainController extends Controller
 
         try{
 
-            $offset = $request->input('offset');
+//            echo '<a href="https://test.amopoint-dev.ru/mrclnn2021/test" target="_blank">HTTP Referrer Test Page</a>';
 
-            $posts = DB::table('posts')->orderBy('id', 'desc')->limit(10)->offset($offset)->select('file_name')->get();
-//            $posts = DB::table('posts')->orderBy('id', 'desc')->whereBetween('id', [102247, 102256])->limit(10)->select('file_name')->get();
+            die;
+
+
+            $res = view('testpdf');
+            $pdf = new Pdf($res->render());
+            $res = $pdf->saveAs(public_path('img/test.pdf'));
+            if(!$res) dump($pdf->getError());
+            dd($res);
+
+            dd($res->render());
+
+//            header('Location: /dbg');
+//            exit('all good');
+//
+//
+//
+//
+//            exit();
+//
+//
+//
+//            dd($request->user());
+
+
+//            dd(Auth::user());
+
+//            $res = DB::table('posts')->truncate();
+//            dd($res);
+
+            $offset = $request->input('offset');
+//            dd($offset);
+
+//            $posts = DB::table('posts')->orderBy('id', 'desc')->limit(10)->offset($offset)->select('file_name')->get();
+            $posts = DB::table('posts')->orderBy('id', 'desc')->whereBetween('id', [102247, 102256])->limit(10)->select('file_name')->get();
             $posts = array_map(function($post){ return public_path("img/$post->file_name"); }, $posts->toArray());
 
 //            $posts = array_filter(scandir(public_path('img/tmp')), function($file){return strlen($file) > 2;});
@@ -108,6 +151,7 @@ class MainController extends Controller
             $this->displayImages($posts);
             echo "<H1>FIRST STEP</H1><BR><BR>";
             $duplicates = $FIC->findDuplicates($posts, $enough);
+            dd($duplicates);
             $this->displayImages($duplicates);
 
             echo "<H1>SECOND STEP</H1><BR><BR>";

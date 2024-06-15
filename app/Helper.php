@@ -6,12 +6,84 @@ namespace App;
 
 use App\Models\Categories;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Psr\Log\LoggerInterface;
 use Illuminate\Database\Eloquent\Model;
 
 class Helper
 {
 
+    public static function sendPost(int $post_id){
+        $path = DB::table('posts')->where('post_id', $post_id)->first()->file_name ?? null;
+        if(!$path){
+            self::log('not found');
+            return;
+        }
+        try{
+            $path = Storage::disk('gallery_posts')->exists($path) ? Storage::disk('gallery_posts')->path($path) : public_path('img/no-file.png');
+            $token = env('TELEGRAM_API_KEY_HENTAI');
+            $arrayQuery = array(
+                'chat_id' => env('TELEGRAM_MAIN_CHAT_ID'),
+                'caption' => '',
+                'photo' => curl_file_create($path, 'image/jpg' , 'mew post name.jpg')
+            );
+            $ch = curl_init('https://api.telegram.org/bot'. $token .'/sendPhoto');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $arrayQuery);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            $res = curl_exec($ch);
+            curl_close($ch);
+        } catch (\Throwable $e){
+            self::log("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+        }
+
+    }
+
+    public static function sendMediaGroup(array $post_ids)
+    {
+        if(empty($post_ids)){
+            self::log('empty ids array');
+            return;
+        }
+        $path_list = DB::table('posts')->whereIn('post_id', $post_ids)->get()->pluck('file_name')->all();
+        if(empty($path_list)){
+            self::log('not found');
+            return;
+        }
+        try{
+            $path_list = array_map(function($path){
+                return Storage::disk('gallery_posts')->exists($path) ? Storage::disk('gallery_posts')->path($path) : public_path('img/no-file.png');
+            }, $path_list);
+            $curl_photos = array_map(function($path){
+                return curl_file_create($path, 'image/jpg' , 'mew post name.jpg');
+            }, $path_list);
+            $token = env('TELEGRAM_API_KEY_HENTAI');
+            $arrayQuery = array(
+                'chat_id' => env('TELEGRAM_MAIN_CHAT_ID'),
+                'media' => json_encode(collect($curl_photos)->map(function($curl_photo){
+                    return [
+                        'type' => 'photo',
+                        'media' => "attach://$curl_photo->name",
+                    ];
+                })->all()),
+            );
+            foreach($curl_photos as $curl_photo){
+                $arrayQuery[$curl_photo->name] = $curl_photo;
+            }
+//            self::log(json_encode($arrayQuery));
+            $ch = curl_init('https://api.telegram.org/bot'. $token .'/sendMediaGroup');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $arrayQuery);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            $res = curl_exec($ch);
+            curl_close($ch);
+        } catch (\Throwable $e){
+            self::log("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+        }
+    }
     public static function log(string $message, $context = []) : void
     {
         (new self)->sendToTG($message);
@@ -79,16 +151,60 @@ class Helper
         curl_setopt_array(
             $ch,
             array(
-                CURLOPT_URL => 'https://api.telegram.org/bot1870702904:AAFEsvY_Gy0E6lSrJTR3exGv2xWRJkyAZjQ/sendMessage',
+                CURLOPT_URL => 'https://api.telegram.org/bot'.env('TELEGRAM_API_KEY_HENTAI').'/sendMessage',
                 CURLOPT_POST => TRUE,
                 CURLOPT_RETURNTRANSFER => TRUE,
                 CURLOPT_TIMEOUT => 10,
                 CURLOPT_POSTFIELDS => array(
-                    'chat_id' => '438500729',
+                    'chat_id' => env('TELEGRAM_MAIN_CHAT_ID'),
                     'text' => $message,
                 ),
             )
         );
         curl_exec($ch);
+    }
+
+    public static function sendRandMediaGroup($quantity)
+    {
+        $quantity = min(200, (int)$quantity);
+        $path = DB::table('posts')->where('status', 2)->orderByRaw("RAND()")->limit($quantity)->get()->pluck('post_id')->all() ?? [];
+        foreach(array_chunk($path, 10) as $chunk){
+            self::sendMediaGroup($chunk);
+        }
+    }
+
+    public static function sendMediaGroupByIds(Collection $ids)
+    {
+        $quantity = min(200, count($ids));
+        $path = DB::table('posts')->whereIn('id', $ids)->orderByRaw("RAND()")->limit($quantity)->get()->pluck('post_id')->all() ?? [];
+        foreach(array_chunk($path, 10) as $chunk){
+            self::sendMediaGroup($chunk);
+        }
+    }
+    public static function sendRandPost()
+    {
+        $path = DB::table('posts')->where('status', 2)->orderByRaw("RAND()")->first()->file_name ?? null;
+        if(!$path){
+            self::log('not found');
+            return;
+        }
+        try{
+            $path = Storage::disk('gallery_posts')->exists($path) ? Storage::disk('gallery_posts')->path($path) : public_path('img/no-file.png');
+            $token = env('TELEGRAM_API_KEY_HENTAI');
+            $arrayQuery = array(
+                'chat_id' => env('TELEGRAM_MAIN_CHAT_ID'),
+                'caption' => '',
+                'photo' => curl_file_create($path, 'image/jpg' , 'mew post name.jpg')
+            );
+            $ch = curl_init('https://api.telegram.org/bot'. $token .'/sendPhoto');
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $arrayQuery);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            $res = curl_exec($ch);
+            curl_close($ch);
+        } catch (\Throwable $e){
+            self::log("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+        }
     }
 }

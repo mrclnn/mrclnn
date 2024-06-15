@@ -28,6 +28,13 @@ class Tags extends Model
         if($model instanceof self) return $model;
         return null;
     }
+
+    public static function getFromNameSearch(string $search): ?self
+    {
+        $model = self::query()->where('tag', 'like', "%$search%")->first();
+        if($model instanceof self) return $model;
+        return null;
+    }
     public static function getTagsAsModelsList($tags)
     {
         if(empty($tags)) return new Collection;

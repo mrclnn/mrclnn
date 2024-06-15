@@ -25,11 +25,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        try{
-            $schedule->command('gallery:parse')->name('gallery_parser')->withoutOverlapping();
-        } catch (\Throwable $e){
-            Helper::log("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
-        }
+        $schedule->command('gallery:parse')->name('gallery_parser')->withoutOverlapping();
+//        $schedule->command('command:test')->name('test_command')->withoutOverlapping();
     }
 
     /**

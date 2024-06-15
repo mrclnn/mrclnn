@@ -26,8 +26,8 @@ class GalleryImage
         preg_match('/\d+$/', $this->remoteURI, $postID);
         $this->postId = $postID[0];
         $fileName = preg_replace('/\?\d+/', '',substr($this->remoteURI, strripos($this->remoteURI, '/') + 1));
-        $this->fileName = "1/$fileName";
-        $this->localURI = public_path() . "/img/$this->fileName";
+        $this->fileName = $fileName;
+        $this->localURI = storage_path("gallery/posts/$this->fileName");
 
         $this->tags = $document['tags'];
 

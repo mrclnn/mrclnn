@@ -35,6 +35,7 @@ class AjaxController extends Controller
     public function __construct()
     {
         $this->setLogger();
+        $this->middleware('auth');
     }
 
     public function execute(Request $request){
@@ -111,6 +112,7 @@ class AjaxController extends Controller
         $answer['posts'] = $posts->map(function($post){
             return [
                 'id' => $post->id,
+                'post_id' => $post->post_id,
                 'file_name' => $post->file_name,
                 'shown' => false,
                 'status' => $post->status,
@@ -244,20 +246,24 @@ class AjaxController extends Controller
     public function addCategory(Request $request) : JsonResponse
     {
         //todo он может выбрасывать ошибку потому что name поле в базе данных уникальное и никак не проверяется на Php
-        $category = (new Categories)
-            ->setExtendTags($request->input('extendTags'))
-            ->setExcludeTags($request->input('excludeTags'))
-            ->setIncludeTags($request->input('includeTags'))
-            ->setName($request->input('name'))
-            ->setCount($request->input('count'));
-        $success = $category->save();
-        if($success) Posts::addCategoryID($category);
-        return response()->json([
-            'success' => $success,
-            'error' => null, //todo
-            'message' => '',
-            'body' => []
-        ]);
+        try{
+            $category = (new Categories)
+                ->setExtendTags($request->input('extendTags'))
+                ->setExcludeTags($request->input('excludeTags'))
+                ->setIncludeTags($request->input('includeTags'))
+                ->setName($request->input('name'))
+                ->setCount($request->input('count'));
+            $success = $category->save();
+            if($success) Posts::addCategoryID($category);
+            return response()->json([
+                'success' => $success,
+                'error' => null, //todo
+                'message' => '',
+                'body' => []
+            ]);
+        } catch (\Throwable $e){
+            Helper::log("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
+        }
     }
 
     public function checkCategoryCount(Request $request): JsonResponse
