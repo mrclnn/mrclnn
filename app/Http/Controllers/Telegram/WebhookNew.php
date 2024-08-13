@@ -77,6 +77,40 @@ class WebhookNew extends Controller
                 $this->sendTextMessage($message);
 
                 break;
+            case 'когда у кати отпуск':
+                date_default_timezone_set('Europe/Moscow');
+                $homeTime = strtotime(date('2024-08-26 00:00:00'), 123);
+                $now = time();
+
+                $diff = $now - $homeTime;
+
+                $timeLeftSeconds = abs($diff);
+                $dt = new DateTime();
+                $dt->add(new DateInterval('PT' . $timeLeftSeconds . 'S'));
+                $interval = $dt->diff(new DateTime());
+                $rest = $interval->format('%d дней %h часов, %i минут, %s секунд');
+
+                if($diff < 0) $message = "Катин отпуск через $rest";
+                if($diff > 0) $message = "Катя в отпуске уже $rest";
+                $this->sendTextMessage($message);
+                break;
+            case 'когда у иры отпуск':
+                date_default_timezone_set('Europe/Moscow');
+                $homeTime = strtotime(date('2024-08-31 00:00:00'), 123);
+                $now = time();
+
+                $diff = $now - $homeTime;
+
+                $timeLeftSeconds = abs($diff);
+                $dt = new DateTime();
+                $dt->add(new DateInterval('PT' . $timeLeftSeconds . 'S'));
+                $interval = $dt->diff(new DateTime());
+                $rest = $interval->format('%d дней %h часов, %i минут, %s секунд');
+
+                if($diff < 0) $message = "Ирин отпуск через $rest";
+                if($diff > 0) $message = "Ира в отпуске уже $rest";
+                $this->sendTextMessage($message);
+                break;
             case 'когда неруде отдыхать':
                 date_default_timezone_set('Europe/Moscow');
                 $homeTime = strtotime(date('Y-m-d 20:00:00'), 123);
