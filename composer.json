@@ -11,6 +11,7 @@
         "ext-imap": "*",
         "ext-json": "*",
         "ext-mysqli": "*",
+        "ext-sqlsrv": "*",
         "google/apiclient": "^2.0",
         "guzzlehttp/guzzle": "^7.2",
         "hflabs/dadata": "*",

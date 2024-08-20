@@ -47,6 +47,9 @@ Route::group(['namespace' => 'Gallery'], function(){
     Route::post('/gallery/search', 'AjaxController@search');
     Route::post('/gallery/load', 'AjaxController@load');
 });
+Route::group(['namespace' => 'Amo'], function(){
+    Route::get('/amo', 'AmoController@amo');
+});
 Route::group(['namespace' => 'Utility'], function(){
 
     Route::get('/utility/json-to-class', 'MainController@jsonToClass');
@@ -58,7 +61,6 @@ Route::group(['namespace' => 'Telegram'], function(){
     Route::any('/tg/hookNew', 'WebhookNew@exec');
 
 });
-
 Route::group(['namespace' => 'Discord'], function(){
 
     Route::any('/discord/redirect', 'Webhook@execute');

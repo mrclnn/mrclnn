@@ -33,26 +33,74 @@ class WebhookNew extends Controller
             ]);
 
             $message = json_decode(file_get_contents('php://input'))->message->text ?? null;
+            $author = json_decode(file_get_contents('php://input'))->message->from->first_name ?? null;
+            $msgId = json_decode(file_get_contents('php://input'))->message->message_id ?? null;
             $this->chatId = json_decode(file_get_contents('php://input'))->message->chat->id ?? null;
             if(empty($this->chatId)) {
                 $this->logger->error("Received empty chat id, reqeust: ", [json_decode(file_get_contents('php://input'))]);
                 return;
             }
-            $this->handleMessage($message);
+            $this->handleMessage($message, $author, $msgId);
 
         } catch (\Throwable $e){
             $this->logger->error("{$e->getMessage()} in file {$e->getFile()} at line {$e->getLine()}");
         }
     }
 
-    private function handleMessage(?string $message)
+    private function handleCommand(?string $message)
+    {
+        $command = preg_replace('/\s.*/', '', $message);
+
+        $this->logger->debug('command: ', [$command]);
+        $this->logger->debug('message: ', [$message]);
+        try{
+            switch ($command){
+                case '/вопрос':
+                    preg_match_all('%^/вопрос.+%ui', $message, $request);
+                    $this->logger->debug('request: ', [$request]);
+                    $request = collect($request)->first()[0] ?? '';
+                    $request = preg_replace('%/ответ.+%ui', '', $request);
+                    $this->logger->debug('request: ', [$request]);
+                    $request = str_replace(['/вопрос', '/ответ'], '', $request);
+                    $request = trim($request);
+                    $this->logger->debug('request: ', [$request]);
+                    if(empty($request)) throw new \InvalidArgumentException("Not found request message");
+
+                    preg_match_all('/\/ответ\s.*$/ui', $message, $response);
+                    $response = collect($response)->first()[0] ?? '';
+                    $response = trim(str_replace(['/вопрос', '/ответ'], '', $response));
+                    if(empty($response)) throw new \InvalidArgumentException("Not found response message");
+
+                    DB::table('opezdal_dictionary')->insert(['request' => $request, 'response' => $response]);
+
+                    $this->sendTextMessage('Фразу записала спасибо пожалуйста');
+
+                    break;
+
+                default:
+                    $this->sendTextMessage('Не поняла, команду');
+            }
+        } catch (\Throwable $e){
+            $this->sendTextMessage($e->getMessage());
+        }
+
+    }
+
+    private function handleMessage(?string $message, ?string $author, ?int $msgId)
     {
         if(empty($message)) return;
+        if(strpos($message, '/') === 0) $this->handleCommand($message);
         if($message === '300') $this->sendTextMessage("Отсоси у тракториста");
+
+        $this->checkIsStickerTrigger($message, $msgId);
+
         if(strpos($message, 'опездал') !== 0) return;
         $message = trim(preg_replace(['/^опездал /', '/^,/'], '', $message));
 
         switch ($message){
+            case 'test':
+                $this->sendTextMessage('nothing to test');
+                break;
             case 'сделай селфи':
                 $this->sendPicMessage(public_path('img/trash/opezdal.png'));
                 break;
@@ -146,8 +194,10 @@ class WebhookNew extends Controller
                 $this->sendTextMessage($message);
                 break;
             default:
-                $this->sendTextMessage('Не поняла, блокирую!!!');
 
+                $response = DB::table('opezdal_dictionary')->where('request', 'like', "%$message%")->first()->response ?? 'Не поняла, блокирую!!!';
+                $response = str_replace('{user}', $author, $response);
+                $this->sendTextMessage($response);
         }
     }
 
@@ -171,6 +221,76 @@ class WebhookNew extends Controller
         curl_exec($ch);
     }
 
+    private function checkIsStickerTrigger(string $message, int $msgId)
+    {
+        $dic = [
+            'м ага' => 'CAACAgIAAxkBAAEa4_1mxI0PTwPRl3-Jx9y_XChWdyZQlgACGVkAAuRk-ErxAva7XrmVrzUE',
+            'кайнда' => 'CAACAgIAAxkBAAJuJ2bEh41doDRcBFR3OGrWSPYXVmEPAAKrSgACuuMBSz9BU8FmzCyGNQQ',
+            'ультрахайп' => 'CAACAgIAAxkBAAEa5AFmxI2fKhtVVQpBk4BYiKtpOvVa9QACgVgAAsDT-EpU3taRYYaZQDUE',
+            'мегахайп' => 'CAACAgIAAxkBAAEa5AFmxI2fKhtVVQpBk4BYiKtpOvVa9QACgVgAAsDT-EpU3taRYYaZQDUE',
+            'гигахайп' => 'CAACAgIAAxkBAAEa5AFmxI2fKhtVVQpBk4BYiKtpOvVa9QACgVgAAsDT-EpU3taRYYaZQDUE',
+            'гиперхайп' => 'CAACAgIAAxkBAAEa5AFmxI2fKhtVVQpBk4BYiKtpOvVa9QACgVgAAsDT-EpU3taRYYaZQDUE',
+            'нормально нормально' => 'CAACAgIAAxkBAAEa5AdmxI3PI2FJ3In9s_D9NbwOtrn3agACt04AAmkm-Eq-3kI4A56XrTUE',
+            'нас ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+            'меня ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+            'тебя ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+            'его ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+            'их ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+            'ее ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+            'её ебут' => 'CAACAgIAAxkBAAEa5AlmxI3qiZeUR9QhkHwU4Gv2GccgugACwVAAAtJB-Uo5qv6iRfGhHzUE',
+//            'хайп' => 'CAACAgIAAxkBAAEa5A9mxI5dD7KvDYwRFYmnirButq7lWgACQlMAAmY7-Eq2MzZ1D4BkRTUE',
+            'спасибо дура' => 'CAACAgIAAxkBAAEa5BVmxI6PhbqfuUYlR8XeFTjDXG9JowACHU0AAiL1WUoFfQX0HMr9uzUE',
+            'хуяк хуяк' => 'CAACAgIAAxkBAAEa5BlmxI7KMk2EC6g7e6t9i4Vu_ggbawAChFIAAo7nAUtP2sqef8IOcjUE',
+            'хуета' => 'CAACAgIAAxkBAAEa5BtmxI7fZoUAASprDbfqIPIfQ6g6LHQAAu1QAAIP1QFLNuGdZb2n34o1BA',
+            'харош' => 'CAACAgIAAxkBAAEa5B1mxI7zUHfkWhm3PBNfm5P7CqgQrQACylUAAkdN-UqYkSirvP-dlTUE',
+            'сюда' => 'CAACAgIAAxkBAAEa5B9mxI8DAAF0mQABV_kXSSx1yyyRR5iRAAKsSgACqmsBS8TFXSWMHYHjNQQ',
+            'братья' => 'CAACAgIAAxkBAAEa5CFmxI8aOobJzIHI4N6hmg0VPtNcPAACAVIAAnEkAUskm-2Awi9DuTUE',
+            'балдеж' => 'CAACAgIAAxkBAAEa5CNmxI8qVdevjkpxDcBwsEIp05oTcAACz1UAArDj-UoAAVpbZZ0Nr3A1BA',
+            'балдёж' => 'CAACAgIAAxkBAAEa5CNmxI8qVdevjkpxDcBwsEIp05oTcAACz1UAArDj-UoAAVpbZZ0Nr3A1BA',
+            'бэлдеж' => 'CAACAgIAAxkBAAEa5CNmxI8qVdevjkpxDcBwsEIp05oTcAACz1UAArDj-UoAAVpbZZ0Nr3A1BA',
+            'факт' => 'CAACAgIAAxkBAAEa5CVmxI9HToh2G99T0uQhSAl86p6_DgACbFMAAojLqEpTmWEc-YJwgjUE',
+            '??????????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '?????????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '????????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '???????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '??????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '?????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '????' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            '???' => 'CAACAgIAAxkBAAEa5CdmxI9dwT2-ybthBNwePcxfJQp39AACZkgAAl--qEpQX7eibdWKkTUE',
+            'кринж' => 'CAACAgIAAxkBAAEa5ClmxI-Qn-xP3P8ZO0fhc7JK1aD0NgACCkYAAlzEYErBUr6_PSUPPjUE',
+        ];
+        foreach($dic as $search => $stick){
+            if(str_contains(strtolower($message), $search)){
+                $this->sendStickerMessage($stick, $msgId, $search);
+                break;
+            }
+        }
+
+    }
+
+    private function sendStickerMessage(string $stickerFileId, ?int $msgId = null, ?string $quote): void
+    {
+        $ch = curl_init();
+        curl_setopt_array(
+            $ch,
+            array(
+                CURLOPT_URL => 'https://api.telegram.org/bot'.env('TELEGRAM_API_KEY_OPEZDAL').'/sendSticker',
+                CURLOPT_POST => TRUE,
+                CURLOPT_RETURNTRANSFER => TRUE,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_POSTFIELDS => array(
+                    'chat_id' => $this->chatId,
+                    'sticker' => $stickerFileId,
+                    'reply_parameters' => json_encode([
+                        'message_id' => $msgId,
+                        'quote' => $quote
+                    ])
+                ),
+            )
+        );
+        $res = curl_exec($ch);
+//        $this->sendTextMessage($res);
+    }
     private function sendPicMessage(string $pictureUrl): void
     {
         if(!file_exists($pictureUrl)) throw new \InvalidArgumentException("Not found file in path $pictureUrl");

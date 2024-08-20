@@ -102,6 +102,18 @@ class MainController extends Controller
 
         try{
 
+//            $conn_id = ftp_ssl_connect('5.101.201.14');
+//            $login = ftp_login($conn_id, 'AmoPoint', 'atWd5kSp');
+//
+//            $buff = ftp_rawlist($conn_id, '/ftproot/1c_to_amo');
+//            ftp_close($conn_id);
+//
+//            dump(compact('login', 'conn_id', 'buff'));
+
+            die;
+
+            dump(public_path());
+
 //            echo '<a href="https://test.amopoint-dev.ru/mrclnn2021/test" target="_blank">HTTP Referrer Test Page</a>';
 
             die;
